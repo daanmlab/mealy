@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum FoodGoal {
+  easy
+  healthy
+  cheap
+  high_protein
+}
+
+enum CookTimePreference {
+  under20
+  under40
+  any
+}
+
+enum RecipeTag {
+  pasta
+  rice
+  bowl
+  stir_fry
+  salad
+  soup
+  sheet_pan
+  quick
+  healthy
+  cheap
+  high_protein
+  vegetarian
+  vegan
+}
+
+enum IngredientCategory {
+  produce
+  meat
+  seafood
+  dairy
+  grains
+  canned
+  condiments
+  spices
+  frozen
+  other
+}
+
+enum PlanStatus {
+  draft
+  confirmed
+}
+
+enum DayOfWeek {
+  monday
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+  sunday
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  password  String?
+
+  peopleCount   Int                @default(2)
+  mealsPerWeek  Int                @default(5)
+  cookTime      CookTimePreference @default(any)
+  goal          FoodGoal           @default(healthy)
+  dislikes      String[]
+
+  onboardingDone Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  weeklyPlans    WeeklyPlan[]
+  favorites      FavoriteRecipe[]
+  refreshTokens  RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Ingredient {
+  id       String             @id @default(cuid())
+  name     String             @unique
+  category IngredientCategory @default(other)
+
+  recipeIngredients RecipeIngredient[]
+  groceryListItems  GroceryListItem[]
+
+  @@map("ingredients")
+}
+
+model Recipe {
+  id              String      @id @default(cuid())
+  title           String
+  description     String
+  cookTimeMinutes Int
+  servings        Int         @default(2)
+  imageUrl        String?
+  tags            RecipeTag[]
+  steps           Json
+  isActive        Boolean     @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ingredients   RecipeIngredient[]
+  planMeals     WeeklyPlanMeal[]
+  favorites     FavoriteRecipe[]
+
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id           String     @id @default(cuid())
+  recipeId     String
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  amount       Float
+  unit         String
+
+  @@unique([recipeId, ingredientId])
+  @@map("recipe_ingredients")
+}
+
+model WeeklyPlan {
+  id             String     @id @default(cuid())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStartDate  DateTime
+  status         PlanStatus @default(draft)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meals       WeeklyPlanMeal[]
+  groceryList GroceryList?
+
+  @@index([userId])
+  @@map("weekly_plans")
+}
+
+model WeeklyPlanMeal {
+  id           String     @id @default(cuid())
+  weeklyPlanId String
+  weeklyPlan   WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
+  recipeId     String
+  recipe       Recipe     @relation(fields: [recipeId], references: [id])
+  day          DayOfWeek
+  isLocked     Boolean    @default(false)
+
+  @@unique([weeklyPlanId, day])
+  @@map("weekly_plan_meals")
+}
+
+model GroceryList {
+  id           String     @id @default(cuid())
+  weeklyPlanId String     @unique
+  weeklyPlan   WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
+  generatedAt  DateTime   @default(now())
+
+  items GroceryListItem[]
+
+  @@map("grocery_lists")
+}
+
+model GroceryListItem {
+  id             String      @id @default(cuid())
+  groceryListId  String
+  groceryList    GroceryList @relation(fields: [groceryListId], references: [id], onDelete: Cascade)
+  ingredientId   String
+  ingredient     Ingredient  @relation(fields: [ingredientId], references: [id])
+  totalAmount    Float
+  unit           String
+  isChecked      Boolean     @default(false)
+
+  @@map("grocery_list_items")
+}
+
+model FavoriteRecipe {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipeId  String
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  savedAt   DateTime @default(now())
+
+  @@id([userId, recipeId])
+  @@map("favorite_recipes")
+}
