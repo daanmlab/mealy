@@ -50,4 +50,9 @@ export class PlansController {
   confirm(@Param('id') id: string, @CurrentUser() user: User) {
     return this.plans.confirmPlan(id, user.id);
   }
+
+  @Post(':id/unlock')
+  unlock(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.plans.unlockPlan(id, user.id);
+  }
 }

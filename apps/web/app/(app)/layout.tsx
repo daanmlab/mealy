@@ -35,7 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {pathname !== '/onboarding' && (
         <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
-          <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
             <Link href="/plan" className="font-bold text-green-600 text-lg tracking-tight">
               mealy
             </Link>
@@ -64,7 +64,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
       )}
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4">{children}</main>
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 pt-[1.5em]">{children}</main>
     </div>
   );
 }

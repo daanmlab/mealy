@@ -140,6 +140,17 @@ export class PlansService {
     });
   }
 
+  async unlockPlan(planId: string, userId: string) {
+    const plan = await this.getPlanById(planId, userId);
+    if (plan.status === PlanStatus.draft) return plan;
+
+    return this.prisma.weeklyPlan.update({
+      where: { id: planId },
+      data: { status: PlanStatus.draft },
+      include: PLAN_INCLUDE,
+    });
+  }
+
   async confirmPlan(planId: string, userId: string) {
     const plan = await this.getPlanById(planId, userId);
     if (plan.status === PlanStatus.confirmed) return plan;
