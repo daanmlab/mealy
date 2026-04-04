@@ -1,9 +1,12 @@
 import { IsOptional, IsEnum, IsInt, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { RecipeTag } from '@prisma/client';
 
 export class RecipeQueryDto {
   @IsOptional()
+  @Transform(({ value }: { value: RecipeTag | RecipeTag[] }) =>
+    Array.isArray(value) ? value : [value],
+  )
   @IsEnum(RecipeTag, { each: true })
   tags?: RecipeTag[];
 
