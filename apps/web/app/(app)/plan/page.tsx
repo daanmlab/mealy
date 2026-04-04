@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { plansApi, favoritesApi, type Plan, type PlanMeal, type FavoriteRecipe } from '@/lib/api';
@@ -18,6 +18,9 @@ const DAY_LABELS: Record<string, string> = {
   saturday: 'Sat',
   sunday: 'Sun',
 };
+
+// Maps Date.getDay() (0=Sun) to day name
+const DAY_BY_INDEX = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
 
 function getWeekStart(offset = 0): Date {
   const now = new Date();
@@ -67,7 +70,7 @@ function weekLabel(offset: number): string {
 
 function getFirstMondayOfMonth(year: number, month: number): Date {
   const d = new Date(year, month, 1);
-  while (d.getDay() !== 1) d.setDate(d.getDate() + 1); // advance until Monday
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
   d.setHours(0, 0, 0, 0);
   return d;
 }
@@ -84,6 +87,7 @@ export default function PlanPage() {
   const [unlocking, setUnlocking] = useState(false);
   const [swapTarget, setSwapTarget] = useState<PlanMeal | null>(null);
   const [selected, setSelected] = useState<PlanMeal | null>(null);
+  const pendingDayRef = useRef<string | null>(null);
 
   const today = new Date();
   const [calYear, setCalYear] = useState(today.getFullYear());
@@ -114,8 +118,14 @@ export default function PlanPage() {
       let current = await plansApi.current(weekStart);
       if (!current) current = await plansApi.create(weekStart);
       setPlan(current);
+      const day = pendingDayRef.current;
+      pendingDayRef.current = null;
       setSelected(
-        (prev) => current?.meals.find((m) => m.id === prev?.id) ?? current?.meals[0] ?? null,
+        (prev) =>
+          (day ? current?.meals.find((m) => m.day === day) : null) ??
+          current?.meals.find((m) => m.id === prev?.id) ??
+          current?.meals[0] ??
+          null,
       );
       if (current) {
         setMonthPlans((prev) => ({ ...prev, [weekStart]: current }));
@@ -235,17 +245,22 @@ export default function PlanPage() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   const weekRangeLabel = `${weekStart.toLocaleDateString('en-NL', { day: 'numeric', month: 'short' })} – ${weekEnd.toLocaleDateString('en-NL', { day: 'numeric', month: 'short' })}`;
 
-  function handleWeekSelect(monday: Date) {
+  function handleWeekSelect(monday: Date, day: Date) {
+    const dayName = DAY_BY_INDEX[day.getDay()] ?? null;
     const offset = dateToWeekOffset(monday);
-    setWeekOffset(offset);
+    if (offset === weekOffset) {
+      const meal = plan?.meals.find((m) => m.day === dayName);
+      if (meal) setSelected(meal);
+    } else {
+      pendingDayRef.current = dayName;
+      setWeekOffset(offset);
+    }
   }
 
   function handleMonthChange(year: number, month: number) {
     setCalYear(year);
     setCalMonth(month);
-    // Auto-select the first Monday of the new month
-    const firstMonday = getFirstMondayOfMonth(year, month);
-    setWeekOffset(dateToWeekOffset(firstMonday));
+    setWeekOffset(dateToWeekOffset(getFirstMondayOfMonth(year, month)));
   }
 
   return (
@@ -381,10 +396,10 @@ export default function PlanPage() {
                         <div className="flex gap-1 flex-wrap">
                           {selected.recipe.tags.map((t) => (
                             <span
-                              key={t}
+                              key={t.tag.slug}
                               className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 capitalize"
                             >
-                              {t.replace('_', '-')}
+                              {t.tag.slug.replace('_', '-')}
                             </span>
                           ))}
                         </div>

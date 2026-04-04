@@ -26,32 +26,26 @@ export type DayOfWeek =
   | 'saturday'
   | 'sunday';
 
-export type RecipeTag =
-  | 'pasta'
-  | 'rice'
-  | 'bowl'
-  | 'stir_fry'
-  | 'salad'
-  | 'soup'
-  | 'sheet_pan'
-  | 'quick'
-  | 'healthy'
-  | 'cheap'
-  | 'high_protein'
-  | 'vegetarian'
-  | 'vegan';
+// ─── Lookup catalogue types ───────────────────────────────────────────────────
 
-export type IngredientCategory =
-  | 'produce'
-  | 'meat'
-  | 'seafood'
-  | 'dairy'
-  | 'grains'
-  | 'canned'
-  | 'condiments'
-  | 'spices'
-  | 'frozen'
-  | 'other';
+export interface Tag {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface IngredientCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface Unit {
+  id: string;
+  symbol: string;
+  name: string;
+  type: 'weight' | 'volume' | 'count' | 'other';
+}
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 
@@ -82,13 +76,20 @@ export interface UpdatePreferences {
 export interface Ingredient {
   id: string;
   name: string;
-  category: IngredientCategory;
+  category: IngredientCategory | null;
+}
+
+export interface IngredientGroup {
+  id: string;
+  name: string;
+  sortOrder: number;
 }
 
 export interface RecipeIngredient {
   id: string;
   amount: number;
-  unit: string;
+  unit: Unit;
+  group: IngredientGroup | null;
   ingredient: Ingredient;
 }
 
@@ -104,8 +105,10 @@ export interface Recipe {
   cookTimeMinutes: number;
   servings: number;
   imageUrl: string | null;
-  tags: RecipeTag[];
+  sourceUrl: string | null;
   steps: RecipeStep[];
+  tags: { tag: Tag }[];
+  groups: IngredientGroup[];
   ingredients: RecipeIngredient[];
 }
 
@@ -130,7 +133,7 @@ export interface Plan {
 export interface GroceryItem {
   id: string;
   totalAmount: number;
-  unit: string;
+  unit: Unit;
   isChecked: boolean;
   ingredient: Ingredient;
 }

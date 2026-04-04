@@ -75,8 +75,8 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
 
           <div className="flex flex-wrap gap-1.5 mt-3">
             {recipe.tags.map((tag) => (
-              <span key={tag} className="px-2 py-0.5 bg-green-50 text-green-700 text-xs font-medium rounded-full capitalize">
-                {tag.replace('_', '-')}
+              <span key={tag.tag.slug} className="px-2 py-0.5 bg-green-50 text-green-700 text-xs font-medium rounded-full capitalize">
+                {tag.tag.slug.replace('_', '-')}
               </span>
             ))}
           </div>
@@ -89,7 +89,7 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
               <li key={ri.id} className="flex items-center justify-between text-sm">
                 <span className="text-gray-700 capitalize">{ri.ingredient.name}</span>
                 <span className="text-gray-400">
-                  {ri.amount % 1 === 0 ? ri.amount : ri.amount.toFixed(1)} {ri.unit}
+                  {ri.amount % 1 === 0 ? ri.amount : ri.amount.toFixed(1)} {ri.unit.symbol}
                 </span>
               </li>
             ))}

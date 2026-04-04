@@ -9,29 +9,23 @@ interface MonthlyCalendarProps {
   month: number;
   selectedWeekStart: Date;
   monthPlans: Record<string, Plan | null>;
-  onWeekSelect: (weekStart: Date) => void;
+  onWeekSelect: (weekStart: Date, day: Date) => void;
   onMonthChange: (year: number, month: number) => void;
   /** 0 = Sunday, 1 = Monday (default) */
   weekStartsOn?: 0 | 1;
 }
 
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-/** Returns the start of the week containing `date`. */
-function getGridWeekStart(date: Date, weekStartsOn: 0 | 1): Date {
+function getWeekStart(date: Date, weekStartsOn: 0 | 1 = 1): Date {
   const d = new Date(date);
   const day = d.getDay();
   const diff = weekStartsOn === 1 ? (day === 0 ? -6 : 1 - day) : -day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+function rowMonday(row: Date[], weekStartsOn: 0 | 1): Date {
+  return weekStartsOn === 1 ? row[0]! : row[1]!;
 }
 
 function toISODate(d: Date): string {
@@ -73,7 +67,7 @@ export function MonthlyCalendar({
   const todayISO = toISODate(today);
 
   const firstOfMonth = new Date(year, month, 1);
-  const gridStart = getGridWeekStart(firstOfMonth, weekStartsOn);
+  const gridStart = getWeekStart(firstOfMonth, weekStartsOn);
 
   const rows: Date[][] = [];
   const cursor = new Date(gridStart);
@@ -88,10 +82,8 @@ export function MonthlyCalendar({
     if (cursor > new Date(year, month + 1, 0)) break;
   }
 
-  const selectedWeekISO = toISODate(getMonday(selectedWeekStart));
-  const selectedRowIndex = rows.findIndex(
-    (row) => toISODate(getMonday(row[0]!)) === selectedWeekISO,
-  );
+  const selectedWeekISO = toISODate(selectedWeekStart);
+  const selectedRowIndex = rows.findIndex((row) => toISODate(rowMonday(row, weekStartsOn)) === selectedWeekISO);
 
   useEffect(() => {
     const el = rowsRef.current[0];
@@ -166,11 +158,12 @@ export function MonthlyCalendar({
         )}
 
         {rows.map((row, rowIndex) => {
-          const rowMondayISO = toISODate(getMonday(row[0]!));
+          const monday = rowMonday(row, weekStartsOn);
+          const mondayISO = toISODate(monday);
 
           return (
             <div
-              key={rowMondayISO}
+              key={mondayISO}
               ref={(el) => {
                 rowsRef.current[rowIndex] = el;
               }}
@@ -179,9 +172,7 @@ export function MonthlyCalendar({
               {row.map((day) => {
                 const dayISO = toISODate(day);
                 const isToday = dayISO === todayISO;
-                const weekMonday = getMonday(day);
-                const weekMondayISO = toISODate(weekMonday);
-                const plan = monthPlans[weekMondayISO] ?? null;
+                const plan = monthPlans[mondayISO] ?? null;
 
                 const dayOfWeek = DAY_OF_WEEK_MAP[day.getDay()] ?? '';
                 const hasMeal = plan !== null && plan.meals.some((m) => m.day === dayOfWeek);
@@ -190,7 +181,7 @@ export function MonthlyCalendar({
                 return (
                   <div
                     key={dayISO}
-                    onClick={() => onWeekSelect(weekMonday)}
+                    onClick={() => onWeekSelect(monday, day)}
                     className="flex flex-col items-center justify-start pt-1 pb-1 cursor-pointer"
                   >
                     <span

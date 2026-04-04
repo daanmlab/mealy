@@ -1,0 +1,30 @@
+{
+  "name": "@mealy/scraper",
+  "version": "0.0.1",
+  "description": "Recipe scraper CLI for Mealy",
+  "private": true,
+  "scripts": {
+    "scrape": "ts-node src/index.ts",
+    "build": "tsc",
+    "lint": "eslint \"src/**/*.ts\"",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "commander": "^13.1.0",
+    "dotenv": "^16.0.3",
+    "openai": "^4.99.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.7",
+    "eslint": "^9.18.0",
+    "eslint-plugin-prettier": "^5.2.2",
+    "globals": "^16.0.0",
+    "prettier": "^3.4.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  }
+}

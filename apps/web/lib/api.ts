@@ -6,9 +6,11 @@ import type {
   Recipe,
   RecipeIngredient,
   Ingredient,
-  RecipeStep,
-  RecipeTag,
   IngredientCategory,
+  IngredientGroup,
+  RecipeStep,
+  Tag,
+  Unit,
   Plan,
   PlanMeal,
   DayOfWeek,
@@ -20,15 +22,20 @@ import type {
   CookTimePreference,
 } from '@mealy/types';
 
+// Tag slugs are plain strings in the new schema
+export type RecipeTag = string;
+
 export type {
   User,
   UpdatePreferences,
   Recipe,
   RecipeIngredient,
   Ingredient,
-  RecipeStep,
-  RecipeTag,
   IngredientCategory,
+  IngredientGroup,
+  RecipeStep,
+  Tag,
+  Unit,
   Plan,
   PlanMeal,
   DayOfWeek,

@@ -87,9 +87,9 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  // Group items by category
+  // Group items by category slug
   const grouped = list.items.reduce<Record<string, GroceryItem[]>>((acc, item) => {
-    const cat = item.ingredient.category;
+    const cat = item.ingredient.category?.slug ?? 'other';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
     return acc;
@@ -168,7 +168,7 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
                       {item.ingredient.name}
                     </span>
                     <span className="text-xs text-gray-400 shrink-0">
-                      {item.totalAmount % 1 === 0 ? item.totalAmount : item.totalAmount.toFixed(1)} {item.unit}
+                      {item.totalAmount % 1 === 0 ? item.totalAmount : item.totalAmount.toFixed(1)} {item.unit.symbol}
                     </span>
                   </button>
                 ))}

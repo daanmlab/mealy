@@ -3,6 +3,7 @@
     { "name": "mealy (root)", "path": "." },
     { "name": "api", "path": "apps/api" },
     { "name": "web", "path": "apps/web" },
+    { "name": "scraper", "path": "apps/scraper" },
     { "name": "types", "path": "packages/types" },
     { "name": "ui", "path": "packages/ui" },
     { "name": "eslint-config", "path": "packages/eslint-config" },

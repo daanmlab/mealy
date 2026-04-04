@@ -96,8 +96,8 @@ export default function RecipesPage() {
                 <span className="text-xs text-gray-400">⏱ {recipe.cookTimeMinutes} min</span>
                 <div className="flex gap-1">
                   {recipe.tags.slice(0, 2).map((t) => (
-                    <span key={t} className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-700 rounded capitalize font-medium">
-                      {t.replace('_', '-')}
+                    <span key={t.tag.slug} className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-700 rounded capitalize font-medium">
+                      {t.tag.slug.replace('_', '-')}
                     </span>
                   ))}
                 </div>

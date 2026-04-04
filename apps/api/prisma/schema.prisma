@@ -21,35 +21,6 @@ enum CookTimePreference {
   any
 }
 
-enum RecipeTag {
-  pasta
-  rice
-  bowl
-  stir_fry
-  salad
-  soup
-  sheet_pan
-  quick
-  healthy
-  cheap
-  high_protein
-  vegetarian
-  vegan
-}
-
-enum IngredientCategory {
-  produce
-  meat
-  seafood
-  dairy
-  grains
-  canned
-  condiments
-  spices
-  frozen
-  other
-}
-
 enum PlanStatus {
   draft
   confirmed
@@ -65,7 +36,78 @@ enum DayOfWeek {
   sunday
 }
 
-// ─── Models ───────────────────────────────────────────────────────────────────
+enum UnitType {
+  weight
+  volume
+  count
+  other
+}
+
+// ─── Lookup / catalogue tables ────────────────────────────────────────────────
+
+model Unit {
+  id     String   @id @default(cuid())
+  symbol String   @unique
+  name   String
+  type   UnitType
+
+  conversionsFrom   UnitConversion[]   @relation("FromUnit")
+  conversionsTo     UnitConversion[]   @relation("ToUnit")
+  recipeIngredients RecipeIngredient[]
+  groceryListItems  GroceryListItem[]
+
+  @@map("units")
+}
+
+model UnitConversion {
+  id         String @id @default(cuid())
+  fromUnitId String
+  toUnitId   String
+  /// Multiply fromUnit amount by this factor to get toUnit amount
+  factor     Float
+
+  fromUnit Unit @relation("FromUnit", fields: [fromUnitId], references: [id])
+  toUnit   Unit @relation("ToUnit",   fields: [toUnitId],   references: [id])
+
+  @@unique([fromUnitId, toUnitId])
+  @@map("unit_conversions")
+}
+
+model IngredientCategory {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  ingredients Ingredient[]
+
+  @@map("ingredient_categories")
+}
+
+model Tag {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  recipes RecipeTag[]
+
+  @@map("tags")
+}
+
+// ─── Recipe structure ─────────────────────────────────────────────────────────
+
+model IngredientGroup {
+  id        String @id @default(cuid())
+  recipeId  String
+  name      String
+  sortOrder Int    @default(0)
+
+  recipe      Recipe             @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredients RecipeIngredient[]
+
+  @@map("ingredient_groups")
+}
+
+// ─── Core models ──────────────────────────────────────────────────────────────
 
 model User {
   id        String   @id @default(cuid())
@@ -74,20 +116,19 @@ model User {
   avatarUrl String?
   password  String?
 
-  peopleCount   Int                @default(2)
-  mealsPerWeek  Int                @default(5)
-  cookTime      CookTimePreference @default(any)
-  goal          FoodGoal           @default(healthy)
-  dislikes      String[]
-
-  onboardingDone Boolean @default(false)
+  peopleCount    Int                @default(2)
+  mealsPerWeek   Int                @default(5)
+  cookTime       CookTimePreference @default(any)
+  goal           FoodGoal           @default(healthy)
+  dislikes       String[]
+  onboardingDone Boolean            @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  weeklyPlans    WeeklyPlan[]
-  favorites      FavoriteRecipe[]
-  refreshTokens  RefreshToken[]
+  weeklyPlans   WeeklyPlan[]
+  favorites     FavoriteRecipe[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
 }
@@ -106,9 +147,10 @@ model RefreshToken {
 }
 
 model Ingredient {
-  id       String             @id @default(cuid())
-  name     String             @unique
-  category IngredientCategory @default(other)
+  id         String              @id @default(cuid())
+  name       String              @unique
+  categoryId String?
+  category   IngredientCategory? @relation(fields: [categoryId], references: [id])
 
   recipeIngredients RecipeIngredient[]
   groceryListItems  GroceryListItem[]
@@ -117,45 +159,62 @@ model Ingredient {
 }
 
 model Recipe {
-  id              String      @id @default(cuid())
+  id              String  @id @default(cuid())
   title           String
   description     String
   cookTimeMinutes Int
-  servings        Int         @default(2)
+  servings        Int     @default(2)
   imageUrl        String?
-  tags            RecipeTag[]
+  sourceUrl       String? @unique
   steps           Json
-  isActive        Boolean     @default(true)
+  isActive        Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  ingredients   RecipeIngredient[]
-  planMeals     WeeklyPlanMeal[]
-  favorites     FavoriteRecipe[]
+  ingredients RecipeIngredient[]
+  groups      IngredientGroup[]
+  tags        RecipeTag[]
+  planMeals   WeeklyPlanMeal[]
+  favorites   FavoriteRecipe[]
 
   @@map("recipes")
 }
 
-model RecipeIngredient {
-  id           String     @id @default(cuid())
-  recipeId     String
-  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  ingredientId String
-  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
-  amount       Float
-  unit         String
+model RecipeTag {
+  recipeId String
+  tagId    String
 
-  @@unique([recipeId, ingredientId])
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId],    references: [id])
+
+  @@id([recipeId, tagId])
+  @@map("recipe_tags")
+}
+
+model RecipeIngredient {
+  id           String  @id @default(cuid())
+  recipeId     String
+  ingredientId String
+  groupId      String?
+  unitId       String
+  amount       Float
+
+  recipe     Recipe           @relation(fields: [recipeId],     references: [id], onDelete: Cascade)
+  ingredient Ingredient       @relation(fields: [ingredientId], references: [id])
+  group      IngredientGroup? @relation(fields: [groupId],      references: [id])
+  unit       Unit             @relation(fields: [unitId],       references: [id])
+
+  @@index([recipeId])
   @@map("recipe_ingredients")
 }
 
 model WeeklyPlan {
-  id             String     @id @default(cuid())
-  userId         String
-  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  weekStartDate  DateTime
-  status         PlanStatus @default(draft)
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStartDate DateTime
+  status        PlanStatus @default(draft)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -192,24 +251,27 @@ model GroceryList {
 }
 
 model GroceryListItem {
-  id             String      @id @default(cuid())
-  groceryListId  String
-  groceryList    GroceryList @relation(fields: [groceryListId], references: [id], onDelete: Cascade)
-  ingredientId   String
-  ingredient     Ingredient  @relation(fields: [ingredientId], references: [id])
-  totalAmount    Float
-  unit           String
-  isChecked      Boolean     @default(false)
+  id            String      @id @default(cuid())
+  groceryListId String
+  ingredientId  String
+  unitId        String
+  totalAmount   Float
+  isChecked     Boolean     @default(false)
+
+  groceryList GroceryList @relation(fields: [groceryListId], references: [id], onDelete: Cascade)
+  ingredient  Ingredient  @relation(fields: [ingredientId], references: [id])
+  unit        Unit        @relation(fields: [unitId],       references: [id])
 
   @@map("grocery_list_items")
 }
 
 model FavoriteRecipe {
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recipeId  String
-  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  savedAt   DateTime @default(now())
+  userId   String
+  recipeId String
+  savedAt  DateTime @default(now())
+
+  user   User   @relation(fields: [userId],   references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@id([userId, recipeId])
   @@map("favorite_recipes")

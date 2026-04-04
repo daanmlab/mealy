@@ -36,8 +36,8 @@ function RecipeRow({ recipe, onSwap }: { recipe: Recipe; onSwap: (id: string) =>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs text-gray-400">⏱ {recipe.cookTimeMinutes} min</span>
           {recipe.tags.slice(0, 3).map((t) => (
-            <span key={t} className="text-xs px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 capitalize">
-              {t.replace('_', '-')}
+            <span key={t.tag.slug} className="text-xs px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 capitalize">
+              {t.tag.slug.replace('_', '-')}
             </span>
           ))}
         </div>
@@ -65,7 +65,7 @@ export default function SwapPickerModal({ plan, meal, onSwap, onClose }: SwapPic
   const filtered = allRecipes
     .filter((r) => {
       const matchesSearch = search.trim() === '' || r.title.toLowerCase().includes(search.trim().toLowerCase());
-      const matchesTag = activeTag === 'all' || r.tags.includes(activeTag as RecipeTag);
+      const matchesTag = activeTag === 'all' || r.tags.some((rt) => rt.tag.slug === activeTag);
       return matchesSearch && matchesTag;
     })
     .slice(0, 50);

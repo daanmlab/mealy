@@ -26,18 +26,18 @@ export class GroceryService {
     // Aggregate ingredients across all meals
     const aggregated = new Map<
       string,
-      { ingredientId: string; totalAmount: number; unit: string }
+      { ingredientId: string; totalAmount: number; unitId: string }
     >();
 
     for (const meal of plan.meals) {
       const recipe = await this.prisma.recipe.findUnique({
         where: { id: meal.recipeId },
-        include: { ingredients: { include: { ingredient: true } } },
+        include: { ingredients: { include: { ingredient: true, unit: true } } },
       });
       if (!recipe) continue;
 
       for (const ri of recipe.ingredients) {
-        const key = `${ri.ingredientId}:${ri.unit}`;
+        const key = `${ri.ingredientId}:${ri.unitId}`;
         const existing = aggregated.get(key);
         if (existing) {
           existing.totalAmount += ri.amount;
@@ -45,7 +45,7 @@ export class GroceryService {
           aggregated.set(key, {
             ingredientId: ri.ingredientId,
             totalAmount: ri.amount,
-            unit: ri.unit,
+            unitId: ri.unitId,
           });
         }
       }
@@ -59,7 +59,7 @@ export class GroceryService {
         },
       },
       include: {
-        items: { include: { ingredient: true } },
+        items: { include: { ingredient: true, unit: true } },
       },
     });
 
@@ -74,9 +74,9 @@ export class GroceryService {
       where: { weeklyPlanId: planId },
       include: {
         items: {
-          include: { ingredient: true },
+          include: { ingredient: { include: { category: true } }, unit: true },
           orderBy: [
-            { ingredient: { category: 'asc' } },
+            { ingredient: { category: { name: 'asc' } } },
             { ingredient: { name: 'asc' } },
           ],
         },
@@ -99,7 +99,7 @@ export class GroceryService {
     return this.prisma.groceryListItem.update({
       where: { id: itemId },
       data: { isChecked: !item.isChecked },
-      include: { ingredient: true },
+      include: { ingredient: true, unit: true },
     });
   }
 }

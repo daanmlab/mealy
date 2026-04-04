@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesService } from '../recipes/recipes.service';
 import type { User } from '@prisma/client';
-import { DayOfWeek, PlanStatus, RecipeTag } from '@prisma/client';
+import { DayOfWeek, PlanStatus } from '@prisma/client';
 
 const WEEKDAYS: DayOfWeek[] = [
   DayOfWeek.monday,
@@ -20,7 +20,10 @@ const PLAN_INCLUDE = {
   meals: {
     include: {
       recipe: {
-        include: { ingredients: { include: { ingredient: true } } },
+        include: {
+          ingredients: { include: { ingredient: true, unit: true } },
+          tags: { include: { tag: true } },
+        },
       },
     },
     orderBy: { day: 'asc' as const },
@@ -164,9 +167,7 @@ export class PlansService {
     return this.prisma.weeklyPlanMeal.update({
       where: { id: mealId },
       data: { recipeId },
-      include: {
-        recipe: { include: { ingredients: { include: { ingredient: true } } } },
-      },
+      include: PLAN_INCLUDE.meals.include,
     });
   }
 
@@ -280,20 +281,19 @@ export class PlansService {
     return monday;
   }
 
-  private goalToTags(goal: User['goal']): RecipeTag[] {
-    const map: Record<string, RecipeTag[]> = {
-      healthy: [RecipeTag.healthy, RecipeTag.vegetarian],
-      high_protein: [RecipeTag.high_protein],
-      cheap: [RecipeTag.cheap, RecipeTag.vegetarian],
-      easy: [RecipeTag.quick],
+  private goalToTags(goal: User['goal']): string[] {
+    const map: Record<string, string[]> = {
+      healthy: ['healthy', 'vegetarian'],
+      high_protein: ['high_protein'],
+      cheap: ['cheap', 'vegetarian'],
+      easy: ['quick'],
     };
     return map[goal] ?? [];
   }
 
-  private pickVariedMeals<T extends { id: string; tags: RecipeTag[] }>(
-    recipes: T[],
-    count: number,
-  ): T[] {
+  private pickVariedMeals<
+    T extends { id: string; tags: { tag: { slug: string } }[] },
+  >(recipes: T[], count: number): T[] {
     if (recipes.length === 0) return [];
     const picked: T[] = [];
     const usedTags = new Set<string>();
@@ -301,10 +301,10 @@ export class PlansService {
     // First pass: prefer tag variety
     for (const recipe of recipes) {
       if (picked.length >= count) break;
-      const newTags = recipe.tags.filter((t) => !usedTags.has(t));
+      const newTags = recipe.tags.filter((rt) => !usedTags.has(rt.tag.slug));
       if (newTags.length > 0) {
         picked.push(recipe);
-        recipe.tags.forEach((t) => usedTags.add(t));
+        recipe.tags.forEach((rt) => usedTags.add(rt.tag.slug));
       }
     }
 

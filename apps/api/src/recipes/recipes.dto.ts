@@ -1,14 +1,26 @@
-import { IsOptional, IsEnum, IsInt, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsInt,
+  Min,
+  Max,
+  IsString,
+  IsNotEmpty,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+  IsPositive,
+  IsUrl,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { RecipeTag } from '@prisma/client';
 
 export class RecipeQueryDto {
   @IsOptional()
-  @Transform(({ value }: { value: RecipeTag | RecipeTag[] }) =>
+  @Transform(({ value }: { value: string | string[] }) =>
     Array.isArray(value) ? value : [value],
   )
-  @IsEnum(RecipeTag, { each: true })
-  tags?: RecipeTag[];
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 
   @IsOptional()
   @IsInt()
@@ -23,4 +35,66 @@ export class RecipeQueryDto {
   @Min(1)
   @Max(100)
   limit?: number;
+}
+
+export class CreateRecipeIngredientDto {
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @IsNumber()
+  @IsPositive()
+  amount!: number;
+
+  @IsString()
+  @IsNotEmpty()
+  unitSymbol!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  categorySlug!: string;
+
+  @IsOptional()
+  @IsString()
+  groupName?: string;
+}
+
+export class CreateRecipeDto {
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  description!: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(600)
+  cookTimeMinutes!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  servings!: number;
+
+  @IsOptional()
+  @IsUrl()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsUrl()
+  sourceUrl?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  tagSlugs!: string[];
+
+  @IsArray()
+  steps!: { order: number; text: string }[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateRecipeIngredientDto)
+  ingredients!: CreateRecipeIngredientDto[];
 }
