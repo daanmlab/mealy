@@ -12,10 +12,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  if (isPublic && hasRefreshCookie && !pathname.startsWith('/auth/callback')) {
-    return NextResponse.redirect(new URL('/plan', request.url));
-  }
-
   return NextResponse.next();
 }
 

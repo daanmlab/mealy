@@ -42,6 +42,10 @@ export type {
 
 let accessToken: string | null = null;
 
+// Registered by AuthProvider; called when the refresh token is expired/invalid
+// so the app can clear state and redirect to /login.
+let onSessionExpired: (() => void) | null = null;
+
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }
@@ -50,7 +54,67 @@ export function getAccessToken() {
   return accessToken;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export function setOnSessionExpired(cb: (() => void) | null) {
+  onSessionExpired = cb;
+}
+
+// ─── Refresh-token machinery ───────────────────────────────────────────────────
+// Only one refresh request is ever in-flight at a time. Any other request that
+// hits a 401 while a refresh is already running waits for the same promise
+// instead of firing its own /auth/refresh call.
+let isRefreshing = false;
+let refreshSubscribers: Array<(success: boolean) => void> = [];
+
+function subscribeToRefresh(cb: (success: boolean) => void) {
+  refreshSubscribers.push(cb);
+}
+
+function notifyRefreshSubscribers(success: boolean) {
+  refreshSubscribers.forEach((cb) => cb(success));
+  refreshSubscribers = [];
+}
+
+async function tryRefresh(): Promise<boolean> {
+  // If a refresh is already in-flight, wait for it instead of starting another
+  if (isRefreshing) {
+    return new Promise<boolean>((resolve) => {
+      subscribeToRefresh(resolve);
+    });
+  }
+
+  isRefreshing = true;
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: '' }),
+    });
+
+    if (!res.ok) {
+      // Refresh token is expired or invalid — clear everything and signal the app
+      setAccessToken(null);
+      notifyRefreshSubscribers(false);
+      onSessionExpired?.();
+      return false;
+    }
+
+    const data = await res.json();
+    setAccessToken(data.accessToken);
+    notifyRefreshSubscribers(true);
+    return true;
+  } catch {
+    setAccessToken(null);
+    notifyRefreshSubscribers(false);
+    onSessionExpired?.();
+    return false;
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+// ─── Core request ──────────────────────────────────────────────────────────────
+async function request<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init.headers as Record<string, string>),
@@ -66,22 +130,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     credentials: 'include',
   });
 
-  if (res.status === 401 && path !== '/auth/refresh') {
-    // Attempt silent token refresh
+  // Only attempt a silent token refresh once per original request, and never
+  // for the refresh endpoint itself (that would cause infinite recursion).
+  if (res.status === 401 && path !== '/auth/refresh' && !retried) {
     const refreshed = await tryRefresh();
     if (refreshed) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-      const retry = await fetch(`${API_BASE}/api${path}`, {
-        ...init,
-        headers,
-        credentials: 'include',
-      });
-      if (!retry.ok) throw new ApiError(retry.status, await retry.text());
-      if (retry.status === 204) return undefined as T;
-      const retryText = await retry.text();
-      if (!retryText) return undefined as T;
-      return JSON.parse(retryText) as T;
+      // Retry the original request with the new access token
+      return request<T>(path, init, true);
     }
+    // Refresh failed — onSessionExpired has already been called; just surface the error
     throw new ApiError(401, 'Unauthorized');
   }
 
@@ -94,23 +151,6 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const text = await res.text();
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
-}
-
-async function tryRefresh(): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: '' }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    setAccessToken(data.accessToken);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export class ApiError extends Error {

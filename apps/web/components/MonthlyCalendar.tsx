@@ -6,12 +6,12 @@ import type { Plan } from '@/lib/api';
 
 interface MonthlyCalendarProps {
   year: number;
-  month: number; // 0-indexed (Jan=0, Dec=11)
-  selectedWeekStart: Date; // Monday of the currently selected week
-  monthPlans: Record<string, Plan | null>; // keyed by ISO date string of week's Monday
+  month: number;
+  selectedWeekStart: Date;
+  monthPlans: Record<string, Plan | null>;
   onWeekSelect: (weekStart: Date) => void;
   onMonthChange: (year: number, month: number) => void;
-  /** 0 = Sunday, 1 = Monday (default: 1) */
+  /** 0 = Sunday, 1 = Monday (default) */
   weekStartsOn?: 0 | 1;
 }
 
@@ -24,13 +24,11 @@ function getMonday(date: Date): Date {
   return d;
 }
 
-/** Returns the start of the week (Sunday or Monday) containing `date`. */
+/** Returns the start of the week containing `date`. */
 function getGridWeekStart(date: Date, weekStartsOn: 0 | 1): Date {
   const d = new Date(date);
-  const day = d.getDay(); // 0=Sun … 6=Sat
-  const diff = weekStartsOn === 1
-    ? (day === 0 ? -6 : 1 - day)  // Monday start
-    : -day;                         // Sunday start
+  const day = d.getDay();
+  const diff = weekStartsOn === 1 ? (day === 0 ? -6 : 1 - day) : -day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -77,7 +75,6 @@ export function MonthlyCalendar({
   const firstOfMonth = new Date(year, month, 1);
   const gridStart = getGridWeekStart(firstOfMonth, weekStartsOn);
 
-  // Build rows of 7 days each; stop once we've covered all days in the current month
   const rows: Date[][] = [];
   const cursor = new Date(gridStart);
 
@@ -88,18 +85,14 @@ export function MonthlyCalendar({
       cursor.setDate(cursor.getDate() + 1);
     }
     rows.push(row);
-    // Stop when the next week starts and we've already passed the last day of the month
-    const lastDayOfMonth = new Date(year, month + 1, 0);
-    if (cursor > lastDayOfMonth) break;
+    if (cursor > new Date(year, month + 1, 0)) break;
   }
 
   const selectedWeekISO = toISODate(getMonday(selectedWeekStart));
-  // Row key is always the Monday of that row (plan key), regardless of weekStartsOn
   const selectedRowIndex = rows.findIndex(
     (row) => toISODate(getMonday(row[0]!)) === selectedWeekISO,
   );
 
-  // Measure row height after mount (all rows are equal height); re-measure if row count changes
   useEffect(() => {
     const el = rowsRef.current[0];
     if (el) setRowHeight(el.offsetHeight);
@@ -123,7 +116,7 @@ export function MonthlyCalendar({
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-white select-none">
-      {/* Dark overlay — sits above container (z-[1]), below sliding pill (z-[2]) and row content (z-[3]) */}
+      {/* Dark overlay — below sliding pill (z-[2]) and row content (z-[3]) */}
       <div className="absolute inset-0 bg-black/25 z-[1] pointer-events-none rounded-2xl" />
 
       {/* Header */}
@@ -161,11 +154,6 @@ export function MonthlyCalendar({
 
       {/* Week rows */}
       <div className="pb-1 relative">
-        {/*
-          Sliding selection pill — z-[2]: above the overlay (cancels its tint for the selected row
-          area) but below row content (z-[3]). Because row divs are transparent, the white pill
-          shows through as the selected row's background; the gray overlay shows through elsewhere.
-        */}
         {rowHeight > 0 && selectedRowIndex !== -1 && (
           <div
             className="absolute inset-x-1 z-[2] bg-white rounded-[1em] ring-1 ring-green-300 shadow-sm pointer-events-none transition-transform duration-300 ease-in-out"
@@ -196,20 +184,13 @@ export function MonthlyCalendar({
                 const plan = monthPlans[weekMondayISO] ?? null;
 
                 const dayOfWeek = DAY_OF_WEEK_MAP[day.getDay()] ?? '';
-                const hasMeal =
-                  plan !== null &&
-                  plan.meals.some((m) => m.day === dayOfWeek);
-                const hasGrocery =
-                  plan !== null &&
-                  plan.status === 'confirmed' &&
-                  day.getDay() === 1; // Monday
+                const hasMeal = plan !== null && plan.meals.some((m) => m.day === dayOfWeek);
+                const hasGrocery = plan !== null && plan.status === 'confirmed' && day.getDay() === 1;
 
                 return (
                   <div
                     key={dayISO}
-                    onClick={() => {
-                      onWeekSelect(weekMonday);
-                    }}
+                    onClick={() => onWeekSelect(weekMonday)}
                     className="flex flex-col items-center justify-start pt-1 pb-1 cursor-pointer"
                   >
                     <span

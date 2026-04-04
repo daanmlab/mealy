@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { authApi, usersApi, setAccessToken, type User } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { authApi, usersApi, setAccessToken, setOnSessionExpired, type User } from '@/lib/api';
 
 interface AuthContextValue {
   user: User | null;
@@ -15,8 +16,18 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setOnSessionExpired(() => {
+      setUser(null);
+      setAccessToken(null);
+      router.push('/login');
+    });
+    return () => setOnSessionExpired(null);
+  }, [router]);
 
   const loadUser = useCallback(async () => {
     try {
