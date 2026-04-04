@@ -17,7 +17,9 @@ export class RecipesService {
     return this.prisma.recipe.findMany({
       where: {
         isActive: true,
-        ...(query.maxCookTime && { cookTimeMinutes: { lte: query.maxCookTime } }),
+        ...(query.maxCookTime && {
+          cookTimeMinutes: { lte: query.maxCookTime },
+        }),
         ...(query.tags?.length && { tags: { hasSome: query.tags } }),
       },
       include: this.include,
@@ -47,7 +49,11 @@ export class RecipesService {
     });
   }
 
-  async findSuggestions(excludeIds: string[] = [], tags: RecipeTag[] = [], limit = 10) {
+  async findSuggestions(
+    excludeIds: string[] = [],
+    tags: RecipeTag[] = [],
+    limit = 10,
+  ) {
     return this.prisma.recipe.findMany({
       where: {
         isActive: true,
