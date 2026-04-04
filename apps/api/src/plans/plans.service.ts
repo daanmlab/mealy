@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesService } from '../recipes/recipes.service';
 import type { User } from '@prisma/client';
@@ -34,7 +38,11 @@ export class PlansService {
     const weekStart = weekStartOverride ?? this.getWeekStart();
 
     const existing = await this.prisma.weeklyPlan.findFirst({
-      where: { userId: user.id, weekStartDate: weekStart, status: PlanStatus.draft },
+      where: {
+        userId: user.id,
+        weekStartDate: weekStart,
+        status: PlanStatus.draft,
+      },
       include: PLAN_INCLUDE,
     });
     if (existing) return existing;
@@ -46,29 +54,49 @@ export class PlansService {
       where: { userId: user.id, weekStartDate: { gte: twoWeeksAgo } },
       include: { meals: { select: { recipeId: true } } },
     });
-    const recentIds = recentPlans.flatMap((p) => p.meals.map((m) => m.recipeId));
+    const recentIds = recentPlans.flatMap((p) =>
+      p.meals.map((m) => m.recipeId),
+    );
 
     // Build tag preferences from user goal
     const goalTags = this.goalToTags(user.goal);
 
     // Suggest meals — cascade through 3 fallbacks
-    let suggestions = await this.recipes.findSuggestions(recentIds, goalTags, user.mealsPerWeek * 3);
+    const suggestions = await this.recipes.findSuggestions(
+      recentIds,
+      goalTags,
+      user.mealsPerWeek * 3,
+    );
 
     if (suggestions.length < user.mealsPerWeek) {
       // Fallback 1: drop recent exclusions, keep goal tags
-      const f1 = await this.recipes.findSuggestions([], goalTags, user.mealsPerWeek * 2);
-      suggestions.push(...f1.filter((r) => !suggestions.some((s) => s.id === r.id)));
+      const f1 = await this.recipes.findSuggestions(
+        [],
+        goalTags,
+        user.mealsPerWeek * 2,
+      );
+      suggestions.push(
+        ...f1.filter((r) => !suggestions.some((s) => s.id === r.id)),
+      );
     }
 
     if (suggestions.length < user.mealsPerWeek) {
       // Fallback 2: drop tags too — any active recipe
-      const f2 = await this.recipes.findSuggestions([], [], user.mealsPerWeek * 2);
-      suggestions.push(...f2.filter((r) => !suggestions.some((s) => s.id === r.id)));
+      const f2 = await this.recipes.findSuggestions(
+        [],
+        [],
+        user.mealsPerWeek * 2,
+      );
+      suggestions.push(
+        ...f2.filter((r) => !suggestions.some((s) => s.id === r.id)),
+      );
     }
 
     const selected = this.pickVariedMeals(suggestions, user.mealsPerWeek);
     if (selected.length < user.mealsPerWeek) {
-      throw new BadRequestException('Not enough recipes available to create a plan');
+      throw new BadRequestException(
+        'Not enough recipes available to create a plan',
+      );
     }
     const days = WEEKDAYS.slice(0, user.mealsPerWeek);
 
@@ -104,11 +132,17 @@ export class PlansService {
       where: { id },
       include: PLAN_INCLUDE,
     });
-    if (!plan || plan.userId !== userId) throw new NotFoundException('Plan not found');
+    if (!plan || plan.userId !== userId)
+      throw new NotFoundException('Plan not found');
     return plan;
   }
 
-  async swapMeal(planId: string, mealId: string, userId: string, newRecipeId?: string) {
+  async swapMeal(
+    planId: string,
+    mealId: string,
+    userId: string,
+    newRecipeId?: string,
+  ) {
     const plan = await this.getPlanById(planId, userId);
     const meal = plan.meals.find((m) => m.id === mealId);
     if (!meal) throw new NotFoundException('Meal not found');
@@ -117,15 +151,22 @@ export class PlansService {
     let recipeId = newRecipeId;
     if (!recipeId) {
       const currentIds = plan.meals.map((m) => m.recipeId);
-      const [alternative] = await this.recipes.findSuggestions(currentIds, [], 1);
-      if (!alternative) throw new BadRequestException('No alternative recipes available');
+      const [alternative] = await this.recipes.findSuggestions(
+        currentIds,
+        [],
+        1,
+      );
+      if (!alternative)
+        throw new BadRequestException('No alternative recipes available');
       recipeId = alternative.id;
     }
 
     return this.prisma.weeklyPlanMeal.update({
       where: { id: mealId },
       data: { recipeId },
-      include: { recipe: { include: { ingredients: { include: { ingredient: true } } } } },
+      include: {
+        recipe: { include: { ingredients: { include: { ingredient: true } } } },
+      },
     });
   }
 
@@ -182,7 +223,10 @@ export class PlansService {
     return map[goal] ?? [];
   }
 
-  private pickVariedMeals<T extends { id: string; tags: RecipeTag[] }>(recipes: T[], count: number): T[] {
+  private pickVariedMeals<T extends { id: string; tags: RecipeTag[] }>(
+    recipes: T[],
+    count: number,
+  ): T[] {
     if (recipes.length === 0) return [];
     const picked: T[] = [];
     const usedTags = new Set<string>();
