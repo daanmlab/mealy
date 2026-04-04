@@ -21,7 +21,10 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response): Promise<{ accessToken: string }> {
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ accessToken: string }> {
     const tokens = await this.authService.register(dto);
     this.setRefreshCookie(res, tokens.refreshToken);
     return { accessToken: tokens.accessToken };
@@ -29,7 +32,10 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response): Promise<{ accessToken: string }> {
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ accessToken: string }> {
     const tokens = await this.authService.login(dto);
     this.setRefreshCookie(res, tokens.refreshToken);
     return { accessToken: tokens.accessToken };
@@ -42,7 +48,9 @@ export class AuthController {
     @Body() dto: RefreshTokenDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ accessToken: string }> {
-    const rawToken = req.cookies?.refresh_token ?? dto.refreshToken;
+    const rawToken =
+      (req.cookies as Record<string, string> | undefined)?.['refresh_token'] ??
+      dto.refreshToken;
     const tokens = await this.authService.refresh(rawToken);
     this.setRefreshCookie(res, tokens.refreshToken);
     return { accessToken: tokens.accessToken };
@@ -51,7 +59,10 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Req() req: Request & { user: { id: string } }, @Res({ passthrough: true }) res: Response): Promise<void> {
+  async logout(
+    @Req() req: Request & { user: { id: string } },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
     await this.authService.logout(req.user.id);
     res.clearCookie('refresh_token');
   }
@@ -64,10 +75,10 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  async googleCallback(
+  googleCallback(
     @Req() req: Request & { user: AuthTokens },
     @Res() res: Response,
-  ): Promise<void> {
+  ): void {
     const tokens = req.user;
     this.setRefreshCookie(res, tokens.refreshToken);
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';

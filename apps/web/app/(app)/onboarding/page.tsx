@@ -92,7 +92,7 @@ export default function OnboardingPage() {
 
     // Step 1 — goal + cook time
     <div key="goal" className="space-y-6">
-      <h2 className="text-xl font-semibold">What's your meal goal?</h2>
+      <h2 className="text-xl font-semibold">What&apos;s your meal goal?</h2>
       <div className="grid grid-cols-2 gap-3">
         {GOALS.map(({ value, label, desc }) => (
           <button

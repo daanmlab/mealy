@@ -14,7 +14,11 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
-  async findOrCreate(email: string, name?: string, avatarUrl?: string): Promise<User> {
+  async findOrCreate(
+    email: string,
+    name?: string,
+    avatarUrl?: string,
+  ): Promise<User> {
     const existing = await this.findByEmail(email);
     if (existing) return existing;
     return this.prisma.user.create({ data: { email, name, avatarUrl } });

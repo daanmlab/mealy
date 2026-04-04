@@ -16,7 +16,9 @@ export class FavoritesService {
   }
 
   async addFavorite(userId: string, recipeId: string) {
-    const recipe = await this.prisma.recipe.findUnique({ where: { id: recipeId } });
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+    });
     if (!recipe) throw new NotFoundException('Recipe not found');
 
     return this.prisma.favoriteRecipe.upsert({
@@ -28,7 +30,9 @@ export class FavoritesService {
   }
 
   async removeFavorite(userId: string, recipeId: string) {
-    await this.prisma.favoriteRecipe.deleteMany({ where: { userId, recipeId } });
+    await this.prisma.favoriteRecipe.deleteMany({
+      where: { userId, recipeId },
+    });
   }
 
   async isFavorite(userId: string, recipeId: string): Promise<boolean> {

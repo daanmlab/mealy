@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -17,7 +26,10 @@ export class PlansController {
   }
 
   @Get('current')
-  getCurrent(@CurrentUser() user: User, @Query('weekStart') weekStart?: string) {
+  getCurrent(
+    @CurrentUser() user: User,
+    @Query('weekStart') weekStart?: string,
+  ) {
     const weekStartDate = weekStart ? new Date(weekStart) : undefined;
     return this.plans.getCurrentPlan(user.id, weekStartDate);
   }

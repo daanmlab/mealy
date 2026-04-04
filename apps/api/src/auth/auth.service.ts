@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
@@ -31,7 +35,8 @@ export class AuthService {
 
   async login(dto: LoginDto): Promise<AuthTokens> {
     const user = await this.users.findByEmail(dto.email);
-    if (!user || !user.password) throw new UnauthorizedException('Invalid credentials');
+    if (!user || !user.password)
+      throw new UnauthorizedException('Invalid credentials');
 
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
@@ -39,20 +44,29 @@ export class AuthService {
     return this.generateAndStoreTokens(user.id, user.email);
   }
 
-  async loginOAuth(email: string, name?: string, avatarUrl?: string): Promise<AuthTokens> {
+  async loginOAuth(
+    email: string,
+    name?: string,
+    avatarUrl?: string,
+  ): Promise<AuthTokens> {
     const user = await this.users.findOrCreate(email, name, avatarUrl);
     return this.generateAndStoreTokens(user.id, user.email);
   }
 
   async refresh(rawToken: string): Promise<AuthTokens> {
     const tokenHash = this.hashToken(rawToken);
-    const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+    const stored = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+    });
 
     if (!stored || stored.revoked || stored.expiresAt < new Date()) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    await this.prisma.refreshToken.update({ where: { id: stored.id }, data: { revoked: true } });
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revoked: true },
+    });
 
     const user = await this.users.findById(stored.userId);
     if (!user) throw new UnauthorizedException('User not found');
@@ -67,19 +81,25 @@ export class AuthService {
     });
   }
 
-  async generateAndStoreTokens(userId: string, email: string): Promise<AuthTokens> {
+  async generateAndStoreTokens(
+    userId: string,
+    email: string,
+  ): Promise<AuthTokens> {
     const payload: JwtPayload = { sub: userId, email };
 
     const accessToken = this.jwt.sign(payload, {
       secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-      expiresIn: (this.config.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m') as never,
+      expiresIn: (this.config.get<string>('JWT_ACCESS_EXPIRES_IN') ??
+        '15m') as never,
     });
 
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const tokenHash = this.hashToken(refreshToken);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await this.prisma.refreshToken.create({ data: { userId, tokenHash, expiresAt } });
+    await this.prisma.refreshToken.create({
+      data: { userId, tokenHash, expiresAt },
+    });
 
     return { accessToken, refreshToken };
   }

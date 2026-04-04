@@ -14,6 +14,14 @@ export class SwapMealDto {
 }
 
 export class LockMealDto {
-  @IsEnum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])
+  @IsEnum([
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+  ])
   day: DayOfWeek;
 }

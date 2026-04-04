@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { plansApi, favoritesApi, type Plan, type PlanMeal, type FavoriteRecipe } from '@/lib/api';
 import { MonthlyCalendar } from '@/components/MonthlyCalendar';
+import SwapPickerModal from '@/components/SwapPickerModal';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const DAY_LABELS: Record<string, string> = {
@@ -72,7 +73,7 @@ export default function PlanPage() {
   const [confirming, setConfirming] = useState(false);
   const [showUnlockDialog, setShowUnlockDialog] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
-  const [swappingId, setSwappingId] = useState<string | null>(null);
+  const [swapTarget, setSwapTarget] = useState<PlanMeal | null>(null);
   const [selected, setSelected] = useState<PlanMeal | null>(null);
 
   const today = new Date();
@@ -140,20 +141,16 @@ export default function PlanPage() {
       .then((favs: FavoriteRecipe[]) => setFavorites(new Set(favs.map((f) => f.recipeId))));
   }, []);
 
-  async function handleSwap(meal: PlanMeal) {
+  async function handleSwapWithRecipe(meal: PlanMeal, recipeId: string) {
     if (!plan) return;
-    setSwappingId(meal.id);
-    try {
-      const updated = await plansApi.swap(plan.id, meal.id);
-      setPlan((p) => {
-        if (!p) return p;
-        const meals = p.meals.map((m) => (m.id === meal.id ? { ...m, recipe: updated.recipe } : m));
-        return { ...p, meals };
-      });
-      setSelected((s) => (s?.id === meal.id ? { ...s, recipe: updated.recipe } : s));
-    } finally {
-      setSwappingId(null);
-    }
+    const updated = await plansApi.swap(plan.id, meal.id, recipeId);
+    setPlan((p) => {
+      if (!p) return p;
+      const meals = p.meals.map((m) => (m.id === meal.id ? { ...m, recipe: updated.recipe } : m));
+      return { ...p, meals };
+    });
+    setSelected((s) => (s?.id === meal.id ? { ...s, recipe: updated.recipe } : s));
+    setSwapTarget(null);
   }
 
   async function handleLock(meal: PlanMeal) {
@@ -392,12 +389,12 @@ export default function PlanPage() {
                           {selected.isLocked ? '🔒' : '🔓'}
                         </button>
                         <button
-                          onClick={() => handleSwap(selected)}
-                          disabled={!!swappingId || selected.isLocked}
+                          onClick={() => setSwapTarget(selected)}
+                          disabled={selected.isLocked}
                           className="p-2 rounded-lg text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors text-sm"
                           title="Swap"
                         >
-                          {swappingId === selected.id ? '⟳' : '⇄'}
+                          ⇄
                         </button>
                       </div>
                     )}
@@ -486,6 +483,14 @@ export default function PlanPage() {
           </div>
         )}
       </div>
+      {swapTarget && plan && (
+        <SwapPickerModal
+          plan={plan}
+          meal={swapTarget}
+          onSwap={(recipeId) => handleSwapWithRecipe(swapTarget, recipeId)}
+          onClose={() => setSwapTarget(null)}
+        />
+      )}
     </div>
   );
 }

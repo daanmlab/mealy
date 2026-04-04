@@ -13,14 +13,21 @@ export class GroceryService {
   async generateList(planId: string, userId: string) {
     const plan = await this.plans.getPlanById(planId, userId);
     if (plan.status !== PlanStatus.confirmed) {
-      throw new NotFoundException('Plan must be confirmed before generating a grocery list');
+      throw new NotFoundException(
+        'Plan must be confirmed before generating a grocery list',
+      );
     }
 
     // Delete existing list if regenerating
-    await this.prisma.groceryList.deleteMany({ where: { weeklyPlanId: planId } });
+    await this.prisma.groceryList.deleteMany({
+      where: { weeklyPlanId: planId },
+    });
 
     // Aggregate ingredients across all meals
-    const aggregated = new Map<string, { ingredientId: string; totalAmount: number; unit: string }>();
+    const aggregated = new Map<
+      string,
+      { ingredientId: string; totalAmount: number; unit: string }
+    >();
 
     for (const meal of plan.meals) {
       const recipe = await this.prisma.recipe.findUnique({
@@ -68,19 +75,25 @@ export class GroceryService {
       include: {
         items: {
           include: { ingredient: true },
-          orderBy: [{ ingredient: { category: 'asc' } }, { ingredient: { name: 'asc' } }],
+          orderBy: [
+            { ingredient: { category: 'asc' } },
+            { ingredient: { name: 'asc' } },
+          ],
         },
       },
     });
 
-    if (!list) throw new NotFoundException('Grocery list not found. Generate it first.');
+    if (!list)
+      throw new NotFoundException('Grocery list not found. Generate it first.');
     return list;
   }
 
   async toggleItem(planId: string, itemId: string, userId: string) {
     await this.plans.getPlanById(planId, userId);
 
-    const item = await this.prisma.groceryListItem.findUnique({ where: { id: itemId } });
+    const item = await this.prisma.groceryListItem.findUnique({
+      where: { id: itemId },
+    });
     if (!item) throw new NotFoundException('Item not found');
 
     return this.prisma.groceryListItem.update({

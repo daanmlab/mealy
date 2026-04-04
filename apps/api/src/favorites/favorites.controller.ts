@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Delete, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import type { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -21,7 +30,10 @@ export class FavoritesController {
 
   @Delete(':recipeId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  removeFavorite(@Param('recipeId') recipeId: string, @CurrentUser() user: User) {
+  removeFavorite(
+    @Param('recipeId') recipeId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.favorites.removeFavorite(user.id, recipeId);
   }
 }

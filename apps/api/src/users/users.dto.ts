@@ -1,4 +1,13 @@
-import { IsInt, IsEnum, IsArray, IsString, IsBoolean, IsOptional, Min, Max } from 'class-validator';
+import {
+  IsInt,
+  IsEnum,
+  IsArray,
+  IsString,
+  IsBoolean,
+  IsOptional,
+  Min,
+  Max,
+} from 'class-validator';
 import { CookTimePreference, FoodGoal } from '@prisma/client';
 
 export class UpdatePreferencesDto {
