@@ -171,6 +171,7 @@ export const plansApi = {
   lock: (planId: string, mealId: string) =>
     api.patch<PlanMeal>(`/plans/${planId}/meals/${mealId}/lock`),
   confirm: (planId: string) => api.post<Plan>(`/plans/${planId}/confirm`),
+  regenerate: (planId: string) => api.post<Plan>(`/plans/${planId}/regenerate`),
   unlock: (planId: string) => api.post<Plan>(`/plans/${planId}/unlock`),
 };
 

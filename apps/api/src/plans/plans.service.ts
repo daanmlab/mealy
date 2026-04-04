@@ -192,6 +192,73 @@ export class PlansService {
     });
   }
 
+  async regeneratePlan(planId: string, userId: string) {
+    const plan = await this.getPlanById(planId, userId);
+    if (plan.status === PlanStatus.confirmed)
+      throw new BadRequestException('Cannot regenerate a confirmed plan');
+
+    const lockedMeals = plan.meals.filter((m) => m.isLocked);
+    const unlockedMeals = plan.meals.filter((m) => !m.isLocked);
+    const unlockedCount = unlockedMeals.length;
+
+    if (unlockedCount === 0) return plan;
+
+    // Exclude all currently-in-plan recipe IDs (locked + unlocked) from suggestions
+    const excludeIds = plan.meals.map((m) => m.recipeId);
+    const goalTags = this.goalToTags(
+      (await this.prisma.user.findUniqueOrThrow({ where: { id: userId } }))
+        .goal,
+    );
+
+    const suggestions = await this.recipes.findSuggestions(
+      excludeIds,
+      goalTags,
+      unlockedCount * 3,
+    );
+
+    if (suggestions.length < unlockedCount) {
+      const f1 = await this.recipes.findSuggestions(
+        lockedMeals.map((m) => m.recipeId),
+        goalTags,
+        unlockedCount * 2,
+      );
+      suggestions.push(
+        ...f1.filter((r) => !suggestions.some((s) => s.id === r.id)),
+      );
+    }
+
+    if (suggestions.length < unlockedCount) {
+      const f2 = await this.recipes.findSuggestions(
+        lockedMeals.map((m) => m.recipeId),
+        [],
+        unlockedCount * 2,
+      );
+      suggestions.push(
+        ...f2.filter((r) => !suggestions.some((s) => s.id === r.id)),
+      );
+    }
+
+    const selected = this.pickVariedMeals(suggestions, unlockedCount);
+    if (selected.length < unlockedCount)
+      throw new BadRequestException(
+        'Not enough recipes available to regenerate',
+      );
+
+    await Promise.all(
+      unlockedMeals.map((meal, i) =>
+        this.prisma.weeklyPlanMeal.update({
+          where: { id: meal.id },
+          data: { recipeId: selected[i].id },
+        }),
+      ),
+    );
+
+    return this.prisma.weeklyPlan.findUniqueOrThrow({
+      where: { id: planId },
+      include: PLAN_INCLUDE,
+    });
+  }
+
   async confirmPlan(planId: string, userId: string) {
     const plan = await this.getPlanById(planId, userId);
     if (plan.status === PlanStatus.confirmed) return plan;

@@ -204,6 +204,20 @@ export default function PlanPage() {
     }
   }
 
+  async function handleRegenerate() {
+    if (!plan) return;
+    setLoading(true);
+    try {
+      const updated = await plansApi.regenerate(plan.id);
+      setPlan(updated);
+      setSelected(updated.meals[0] ?? null);
+      const weekStartISO = toISODate(getWeekStart(weekOffset));
+      setMonthPlans((prev) => ({ ...prev, [weekStartISO]: updated }));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const isConfirmed = plan?.status === 'confirmed';
   const planDays = new Set(plan?.meals.map((m) => m.day) ?? []);
 
@@ -448,7 +462,7 @@ export default function PlanPage() {
 
             {!isConfirmed && (
               <button
-                onClick={() => loadPlan(weekOffset)}
+                onClick={handleRegenerate}
                 className="w-full py-2.5 border border-dashed border-gray-300 rounded-xl text-sm text-gray-400 hover:border-green-400 hover:text-green-600 transition-colors"
               >
                 ↺ Regenerate all meals
