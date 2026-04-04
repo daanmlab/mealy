@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { plansApi, favoritesApi, type Plan, type PlanMeal, type FavoriteRecipe } from '@/lib/api';
 import { MonthlyCalendar } from '@/components/MonthlyCalendar';
+import { useWeekStartDay } from '@/hooks/useWeekStartDay';
 import SwapPickerModal from '@/components/SwapPickerModal';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -64,8 +65,16 @@ function weekLabel(offset: number): string {
   return `${Math.abs(offset)} weeks ago`;
 }
 
+function getFirstMondayOfMonth(year: number, month: number): Date {
+  const d = new Date(year, month, 1);
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1); // advance until Monday
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export default function PlanPage() {
   const router = useRouter();
+  const { weekStartsOn } = useWeekStartDay();
   const [weekOffset, setWeekOffset] = useState(0);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -234,6 +243,9 @@ export default function PlanPage() {
   function handleMonthChange(year: number, month: number) {
     setCalYear(year);
     setCalMonth(month);
+    // Auto-select the first Monday of the new month
+    const firstMonday = getFirstMondayOfMonth(year, month);
+    setWeekOffset(dateToWeekOffset(firstMonday));
   }
 
   return (
@@ -247,6 +259,7 @@ export default function PlanPage() {
           monthPlans={monthPlans}
           onWeekSelect={handleWeekSelect}
           onMonthChange={handleMonthChange}
+          weekStartsOn={weekStartsOn}
         />
       </div>
 

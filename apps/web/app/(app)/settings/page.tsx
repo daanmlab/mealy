@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/auth';
 import { usersApi, type FoodGoal, type CookTimePreference } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { useWeekStartDay } from '@/hooks/useWeekStartDay';
 
 const GOALS: { value: FoodGoal; label: string }[] = [
   { value: 'healthy', label: 'Healthy' },
@@ -21,6 +22,7 @@ const DISLIKES_OPTIONS = ['pork', 'shellfish', 'gluten', 'dairy', 'nuts', 'eggs'
 export default function SettingsPage() {
   const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
+  const { weekStartsOn, setWeekStartsOn } = useWeekStartDay();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -131,6 +133,23 @@ export default function SettingsPage() {
                 }`}
               >
                 {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-2">Week starts on</label>
+          <div className="flex gap-2">
+            {([1, 0] as const).map((day) => (
+              <button
+                key={day}
+                onClick={() => setWeekStartsOn(day)}
+                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  weekStartsOn === day ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'
+                }`}
+              >
+                {day === 1 ? 'Monday' : 'Sunday'}
               </button>
             ))}
           </div>

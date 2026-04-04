@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
+
 import type { Plan } from '@/lib/api';
 
 interface MonthlyCalendarProps {
@@ -9,6 +11,8 @@ interface MonthlyCalendarProps {
   monthPlans: Record<string, Plan | null>; // keyed by ISO date string of week's Monday
   onWeekSelect: (weekStart: Date) => void;
   onMonthChange: (year: number, month: number) => void;
+  /** 0 = Sunday, 1 = Monday (default: 1) */
+  weekStartsOn?: 0 | 1;
 }
 
 function getMonday(date: Date): Date {
@@ -20,11 +24,24 @@ function getMonday(date: Date): Date {
   return d;
 }
 
+/** Returns the start of the week (Sunday or Monday) containing `date`. */
+function getGridWeekStart(date: Date, weekStartsOn: 0 | 1): Date {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun … 6=Sat
+  const diff = weekStartsOn === 1
+    ? (day === 0 ? -6 : 1 - day)  // Monday start
+    : -day;                         // Sunday start
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function toISODate(d: Date): string {
   return d.toISOString().split('T')[0] as string;
 }
 
-const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DAY_LABELS_MON = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DAY_LABELS_SUN = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const DAY_OF_WEEK_MAP: Record<number, string> = {
   1: 'monday',
@@ -48,13 +65,17 @@ export function MonthlyCalendar({
   monthPlans,
   onWeekSelect,
   onMonthChange,
+  weekStartsOn = 1,
 }: MonthlyCalendarProps) {
+  const rowsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const [rowHeight, setRowHeight] = useState(0);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayISO = toISODate(today);
 
   const firstOfMonth = new Date(year, month, 1);
-  const gridStart = getMonday(firstOfMonth);
+  const gridStart = getGridWeekStart(firstOfMonth, weekStartsOn);
 
   // Build rows of 7 days each; stop once we've covered all days in the current month
   const rows: Date[][] = [];
@@ -73,6 +94,16 @@ export function MonthlyCalendar({
   }
 
   const selectedWeekISO = toISODate(getMonday(selectedWeekStart));
+  // Row key is always the Monday of that row (plan key), regardless of weekStartsOn
+  const selectedRowIndex = rows.findIndex(
+    (row) => toISODate(getMonday(row[0]!)) === selectedWeekISO,
+  );
+
+  // Measure row height after mount (all rows are equal height); re-measure if row count changes
+  useEffect(() => {
+    const el = rowsRef.current[0];
+    if (el) setRowHeight(el.offsetHeight);
+  }, [rows.length]);
 
   function handlePrevMonth() {
     if (month === 0) {
@@ -92,11 +123,11 @@ export function MonthlyCalendar({
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-white select-none">
-      {/* Dark overlay — sits above non-selected rows (z-0), below selected row (z-2) */}
-      <div className="absolute inset-0 bg-black/25 z-1 pointer-events-none rounded-2xl" />
+      {/* Dark overlay — sits above container (z-[1]), below sliding pill (z-[2]) and row content (z-[3]) */}
+      <div className="absolute inset-0 bg-black/25 z-[1] pointer-events-none rounded-2xl" />
 
       {/* Header */}
-      <div className="relative z-2 flex items-center justify-between px-3 pt-3 pb-2">
+      <div className="relative z-[10] flex items-center justify-between px-3 pt-3 pb-2">
         <button
           onClick={handlePrevMonth}
           className="w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 text-sm font-medium"
@@ -117,8 +148,8 @@ export function MonthlyCalendar({
       </div>
 
       {/* Column headers */}
-      <div className="relative z-2 grid grid-cols-7 px-1 pb-1">
-        {DAY_LABELS.map((label, i) => (
+      <div className="relative z-[10] grid grid-cols-7 px-1 pb-1">
+        {(weekStartsOn === 1 ? DAY_LABELS_MON : DAY_LABELS_SUN).map((label, i) => (
           <div
             key={i}
             className="flex items-center justify-center text-[10px] font-medium text-gray-400"
@@ -129,19 +160,33 @@ export function MonthlyCalendar({
       </div>
 
       {/* Week rows */}
-      <div className="pb-1">
-        {rows.map((row) => {
-          const rowMondayISO = toISODate(row[0]!);
-          const isSelectedWeek = rowMondayISO === selectedWeekISO;
+      <div className="pb-1 relative">
+        {/*
+          Sliding selection pill — z-[2]: above the overlay (cancels its tint for the selected row
+          area) but below row content (z-[3]). Because row divs are transparent, the white pill
+          shows through as the selected row's background; the gray overlay shows through elsewhere.
+        */}
+        {rowHeight > 0 && selectedRowIndex !== -1 && (
+          <div
+            className="absolute inset-x-1 z-[2] bg-white rounded-[1em] ring-1 ring-green-300 shadow-sm pointer-events-none transition-transform duration-300 ease-in-out"
+            style={{
+              height: rowHeight,
+              top: 0,
+              transform: `translateY(${selectedRowIndex * rowHeight}px)`,
+            }}
+          />
+        )}
+
+        {rows.map((row, rowIndex) => {
+          const rowMondayISO = toISODate(getMonday(row[0]!));
 
           return (
             <div
               key={rowMondayISO}
-              className={
-                isSelectedWeek
-                  ? 'relative z-2 grid grid-cols-7 bg-white rounded-[1em] ring-1 ring-green-300 shadow-sm mx-1'
-                  : 'relative z-0 grid grid-cols-7'
-              }
+              ref={(el) => {
+                rowsRef.current[rowIndex] = el;
+              }}
+              className="relative z-[3] grid grid-cols-7"
             >
               {row.map((day) => {
                 const dayISO = toISODate(day);
@@ -165,13 +210,13 @@ export function MonthlyCalendar({
                     onClick={() => {
                       onWeekSelect(weekMonday);
                     }}
-                    className={`flex flex-col items-center justify-start pt-1 pb-1 cursor-pointer`}
+                    className="flex flex-col items-center justify-start pt-1 pb-1 cursor-pointer"
                   >
                     <span
                       className={`text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-medium ${
                         isToday
-                            ? 'bg-green-600 text-white'
-                            : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-green-600 text-white'
+                          : 'text-gray-700 hover:bg-gray-100'
                       }`}
                     >
                       {day.getDate()}
