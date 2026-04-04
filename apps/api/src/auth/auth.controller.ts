@@ -82,7 +82,7 @@ export class AuthController {
     const tokens = req.user;
     this.setRefreshCookie(res, tokens.refreshToken);
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-    res.redirect(`${frontendUrl}/auth/callback?token=${tokens.accessToken}`);
+    res.redirect(`${frontendUrl}/callback?token=${tokens.accessToken}`);
   }
 
   private setRefreshCookie(res: Response, token: string): void {

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
@@ -71,7 +73,7 @@ export default function LoginPage() {
 
       <div className="mt-4 text-center">
         <a
-          href={`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`}
+          href={`${API_BASE}/api/auth/google`}
           className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
