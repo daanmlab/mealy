@@ -21,25 +21,35 @@ export default function RecipesPage() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [activeTag, setActiveTag] = useState<RecipeTag | 'all'>('all');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    favoritesApi.list().then((favs) => setFavorites(new Set(favs.map((f) => f.recipeId))));
+    favoritesApi.list()
+      .then((favs) => setFavorites(new Set(favs.map((f) => f.recipeId))))
+      .catch(() => {/* non-critical: favorites can fail silently */});
   }, []);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     const params = activeTag !== 'all' ? { tags: [activeTag] } : undefined;
-    recipesApi.list(params).then((r) => { setRecipes(r); setLoading(false); });
+    recipesApi.list(params)
+      .then((r) => { setRecipes(r); setLoading(false); })
+      .catch(() => { setError('Failed to load recipes. Please try again.'); setLoading(false); });
   }, [activeTag]);
 
   async function toggleFavorite(e: React.MouseEvent, recipeId: string) {
     e.preventDefault();
-    if (favorites.has(recipeId)) {
-      await favoritesApi.remove(recipeId);
-      setFavorites((f) => { const n = new Set(f); n.delete(recipeId); return n; });
-    } else {
-      await favoritesApi.add(recipeId);
-      setFavorites((f) => new Set(f).add(recipeId));
+    try {
+      if (favorites.has(recipeId)) {
+        await favoritesApi.remove(recipeId);
+        setFavorites((f) => { const n = new Set(f); n.delete(recipeId); return n; });
+      } else {
+        await favoritesApi.add(recipeId);
+        setFavorites((f) => new Set(f).add(recipeId));
+      }
+    } catch {
+      // Optimistic update already skipped; no UI change needed
     }
   }
 
@@ -70,6 +80,8 @@ export default function RecipesPage() {
             <div key={i} className="h-36 bg-gray-100 rounded-xl animate-pulse" />
           ))}
         </div>
+      ) : error ? (
+        <p className="text-red-500 text-sm text-center py-12">{error}</p>
       ) : recipes.length === 0 ? (
         <p className="text-gray-400 text-sm text-center py-12">No recipes found.</p>
       ) : (
@@ -97,7 +109,7 @@ export default function RecipesPage() {
                 <div className="flex gap-1">
                   {recipe.tags.slice(0, 2).map((t) => (
                     <span key={t.tag.slug} className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-700 rounded capitalize font-medium">
-                      {t.tag.slug.replace('_', '-')}
+                      {t.tag.slug.replaceAll('_', '-')}
                     </span>
                   ))}
                 </div>

@@ -82,6 +82,7 @@ export default function PlanPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [showUnlockDialog, setShowUnlockDialog] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
@@ -112,6 +113,7 @@ export default function PlanPage() {
 
   const loadPlan = useCallback(async (offset: number) => {
     setLoading(true);
+    setError(null);
     setPlan(null);
     try {
       const weekStart = toISODate(getWeekStart(offset));
@@ -130,6 +132,8 @@ export default function PlanPage() {
       if (current) {
         setMonthPlans((prev) => ({ ...prev, [weekStart]: current }));
       }
+    } catch {
+      setError('Failed to load your plan. Please refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -339,6 +343,10 @@ export default function PlanPage() {
           <div className="space-y-4">
             <div className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
             <div className="h-48 bg-gray-100 rounded-2xl animate-pulse" />
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
+            <p className="text-red-600 text-sm">{error}</p>
           </div>
         ) : !plan ? null : (
           <>

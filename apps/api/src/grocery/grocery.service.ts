@@ -29,13 +29,13 @@ export class GroceryService {
       { ingredientId: string; totalAmount: number; unitId: string }
     >();
 
-    for (const meal of plan.meals) {
-      const recipe = await this.prisma.recipe.findUnique({
-        where: { id: meal.recipeId },
-        include: { ingredients: { include: { ingredient: true, unit: true } } },
-      });
-      if (!recipe) continue;
+    const recipeIds = plan.meals.map((m) => m.recipeId);
+    const recipes = await this.prisma.recipe.findMany({
+      where: { id: { in: recipeIds } },
+      include: { ingredients: { include: { ingredient: true, unit: true } } },
+    });
 
+    for (const recipe of recipes) {
       for (const ri of recipe.ingredients) {
         const key = `${ri.ingredientId}:${ri.unitId}`;
         const existing = aggregated.get(key);

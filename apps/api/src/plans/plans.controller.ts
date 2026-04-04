@@ -65,7 +65,7 @@ export class PlansController {
 
   @Post(':id/regenerate')
   regenerate(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.plans.regeneratePlan(id, user.id);
+    return this.plans.regeneratePlan(id, user);
   }
 
   @Post(':id/unlock')

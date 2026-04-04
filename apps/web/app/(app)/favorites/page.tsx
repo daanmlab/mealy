@@ -6,19 +6,32 @@ import { favoritesApi, type FavoriteRecipe } from '@/lib/api';
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<FavoriteRecipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    favoritesApi.list().then((data) => { setFavorites(data); setLoading(false); });
+    favoritesApi.list()
+      .then((data) => { setFavorites(data); setLoading(false); })
+      .catch(() => { setError('Failed to load favorites. Please try again.'); setLoading(false); });
   }, []);
 
   async function handleRemove(recipeId: string) {
-    await favoritesApi.remove(recipeId);
-    setFavorites((f) => f.filter((x) => x.recipeId !== recipeId));
+    try {
+      await favoritesApi.remove(recipeId);
+      setFavorites((f) => f.filter((x) => x.recipeId !== recipeId));
+    } catch {
+      setError('Failed to remove favorite. Please try again.');
+    }
   }
 
   if (loading) return (
     <div className="space-y-3">
       {[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
+    </div>
+  );
+
+  if (error) return (
+    <div className="text-center py-16">
+      <p className="text-red-500 text-sm">{error}</p>
     </div>
   );
 

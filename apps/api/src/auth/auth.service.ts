@@ -81,7 +81,7 @@ export class AuthService {
     });
   }
 
-  async generateAndStoreTokens(
+  private async generateAndStoreTokens(
     userId: string,
     email: string,
   ): Promise<AuthTokens> {

@@ -65,19 +65,37 @@ export class RecipesService {
     excludeIds: string[] = [],
     tagSlugs: string[] = [],
     limit = 10,
+    maxCookTime?: number,
+    dislikedIngredients: string[] = [],
   ) {
-    return this.prisma.recipe.findMany({
+    const results = await this.prisma.recipe.findMany({
       where: {
         isActive: true,
         id: { notIn: excludeIds },
         ...(tagSlugs.length && {
           tags: { some: { tag: { slug: { in: tagSlugs } } } },
         }),
+        ...(maxCookTime && { cookTimeMinutes: { lte: maxCookTime } }),
+        ...(dislikedIngredients.length && {
+          ingredients: {
+            none: {
+              ingredient: { name: { in: dislikedIngredients } },
+            },
+          },
+        }),
       },
       include: this.include,
-      take: limit,
+      take: limit * 3, // fetch extra so shuffle has variety
       orderBy: { id: 'asc' },
     });
+
+    // Fisher-Yates shuffle for varied suggestions across calls
+    for (let i = results.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [results[i], results[j]] = [results[j], results[i]];
+    }
+
+    return results.slice(0, limit);
   }
 
   async create(dto: CreateRecipeDto) {

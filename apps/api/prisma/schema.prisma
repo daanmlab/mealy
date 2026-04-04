@@ -223,6 +223,7 @@ model WeeklyPlan {
   groceryList GroceryList?
 
   @@index([userId])
+  @@index([userId, weekStartDate])
   @@map("weekly_plans")
 }
 

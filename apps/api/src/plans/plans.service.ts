@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesService } from '../recipes/recipes.service';
 import type { User } from '@prisma/client';
-import { DayOfWeek, PlanStatus } from '@prisma/client';
+import { DayOfWeek, PlanStatus, CookTimePreference } from '@prisma/client';
 
 const WEEKDAYS: DayOfWeek[] = [
   DayOfWeek.monday,
@@ -14,6 +14,8 @@ const WEEKDAYS: DayOfWeek[] = [
   DayOfWeek.wednesday,
   DayOfWeek.thursday,
   DayOfWeek.friday,
+  DayOfWeek.saturday,
+  DayOfWeek.sunday,
 ];
 
 const PLAN_INCLUDE = {
@@ -61,41 +63,16 @@ export class PlansService {
       p.meals.map((m) => m.recipeId),
     );
 
-    // Build tag preferences from user goal
     const goalTags = this.goalToTags(user.goal);
-
-    // Suggest meals — cascade through 3 fallbacks
-    const suggestions = await this.recipes.findSuggestions(
+    const selected = await this.fetchVariedSuggestions(
       recentIds,
       goalTags,
-      user.mealsPerWeek * 3,
+      user.mealsPerWeek,
+      [],
+      this.cookTimeLimit(user.cookTime),
+      user.dislikes,
     );
 
-    if (suggestions.length < user.mealsPerWeek) {
-      // Fallback 1: drop recent exclusions, keep goal tags
-      const f1 = await this.recipes.findSuggestions(
-        [],
-        goalTags,
-        user.mealsPerWeek * 2,
-      );
-      suggestions.push(
-        ...f1.filter((r) => !suggestions.some((s) => s.id === r.id)),
-      );
-    }
-
-    if (suggestions.length < user.mealsPerWeek) {
-      // Fallback 2: drop tags too — any active recipe
-      const f2 = await this.recipes.findSuggestions(
-        [],
-        [],
-        user.mealsPerWeek * 2,
-      );
-      suggestions.push(
-        ...f2.filter((r) => !suggestions.some((s) => s.id === r.id)),
-      );
-    }
-
-    const selected = this.pickVariedMeals(suggestions, user.mealsPerWeek);
     if (selected.length < user.mealsPerWeek) {
       throw new BadRequestException(
         'Not enough recipes available to create a plan',
@@ -193,8 +170,8 @@ export class PlansService {
     });
   }
 
-  async regeneratePlan(planId: string, userId: string) {
-    const plan = await this.getPlanById(planId, userId);
+  async regeneratePlan(planId: string, user: User) {
+    const plan = await this.getPlanById(planId, user.id);
     if (plan.status === PlanStatus.confirmed)
       throw new BadRequestException('Cannot regenerate a confirmed plan');
 
@@ -204,42 +181,17 @@ export class PlansService {
 
     if (unlockedCount === 0) return plan;
 
+    const goalTags = this.goalToTags(user.goal);
     // Exclude all currently-in-plan recipe IDs (locked + unlocked) from suggestions
     const excludeIds = plan.meals.map((m) => m.recipeId);
-    const goalTags = this.goalToTags(
-      (await this.prisma.user.findUniqueOrThrow({ where: { id: userId } }))
-        .goal,
-    );
-
-    const suggestions = await this.recipes.findSuggestions(
+    const selected = await this.fetchVariedSuggestions(
       excludeIds,
       goalTags,
-      unlockedCount * 3,
+      unlockedCount,
+      lockedMeals.map((m) => m.recipeId),
+      this.cookTimeLimit(user.cookTime),
+      user.dislikes,
     );
-
-    if (suggestions.length < unlockedCount) {
-      const f1 = await this.recipes.findSuggestions(
-        lockedMeals.map((m) => m.recipeId),
-        goalTags,
-        unlockedCount * 2,
-      );
-      suggestions.push(
-        ...f1.filter((r) => !suggestions.some((s) => s.id === r.id)),
-      );
-    }
-
-    if (suggestions.length < unlockedCount) {
-      const f2 = await this.recipes.findSuggestions(
-        lockedMeals.map((m) => m.recipeId),
-        [],
-        unlockedCount * 2,
-      );
-      suggestions.push(
-        ...f2.filter((r) => !suggestions.some((s) => s.id === r.id)),
-      );
-    }
-
-    const selected = this.pickVariedMeals(suggestions, unlockedCount);
     if (selected.length < unlockedCount)
       throw new BadRequestException(
         'Not enough recipes available to regenerate',
@@ -281,6 +233,12 @@ export class PlansService {
     return monday;
   }
 
+  private cookTimeLimit(pref: CookTimePreference): number | undefined {
+    if (pref === CookTimePreference.under20) return 20;
+    if (pref === CookTimePreference.under40) return 40;
+    return undefined;
+  }
+
   private goalToTags(goal: User['goal']): string[] {
     const map: Record<string, string[]> = {
       healthy: ['healthy', 'vegetarian'],
@@ -289,6 +247,56 @@ export class PlansService {
       easy: ['quick'],
     };
     return map[goal] ?? [];
+  }
+
+  /**
+   * Fetch enough recipe suggestions to fill `count` slots, cascading through
+   * three fallbacks if the initial query returns too few results:
+   *   1. Exclude `excludeIds` + require `goalTags`
+   *   2. Only exclude `lockedIds` + require `goalTags`
+   *   3. Only exclude `lockedIds`, no tag filter
+   *
+   * Returns `pickVariedMeals(pool, count)` from the aggregated pool.
+   */
+  private async fetchVariedSuggestions(
+    excludeIds: string[],
+    goalTags: string[],
+    count: number,
+    lockedIds: string[] = [],
+    maxCookTime?: number,
+    dislikedIngredients: string[] = [],
+  ) {
+    const pool = await this.recipes.findSuggestions(
+      excludeIds,
+      goalTags,
+      count * 3,
+      maxCookTime,
+      dislikedIngredients,
+    );
+
+    if (pool.length < count) {
+      const f1 = await this.recipes.findSuggestions(
+        lockedIds,
+        goalTags,
+        count * 2,
+        maxCookTime,
+        dislikedIngredients,
+      );
+      pool.push(...f1.filter((r) => !pool.some((s) => s.id === r.id)));
+    }
+
+    if (pool.length < count) {
+      const f2 = await this.recipes.findSuggestions(
+        lockedIds,
+        [],
+        count * 2,
+        maxCookTime,
+        dislikedIngredients,
+      );
+      pool.push(...f2.filter((r) => !pool.some((s) => s.id === r.id)));
+    }
+
+    return this.pickVariedMeals(pool, count);
   }
 
   private pickVariedMeals<
