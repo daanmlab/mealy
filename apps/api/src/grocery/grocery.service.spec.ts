@@ -14,7 +14,6 @@ const mockPrisma = {
     findUnique: jest.fn(),
   },
   recipe: { findMany: jest.fn() },
-  unit: { findUnique: jest.fn() },
   groceryListItem: {
     findUnique: jest.fn(),
     update: jest.fn(),
@@ -94,11 +93,6 @@ describe('GroceryService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    // Default: unit.findUnique returns a unit based on the id
-    mockPrisma.unit.findUnique.mockImplementation(
-      ({ where }: { where: { id: string } }) =>
-        Promise.resolve(makeUnit(where.id, where.id)),
-    );
     // Default: no conversions exist (returns null → keep separate)
     mockConversion.convert.mockResolvedValue(null);
 
@@ -219,12 +213,6 @@ describe('GroceryService', () => {
         makeRecipe('r2', 2, [makeRecipeIngredient('soy-sauce', 'tsp', 2)]),
       ]);
 
-      // unit.findUnique returns units with correct symbols
-      mockPrisma.unit.findUnique.mockImplementation(
-        ({ where }: { where: { id: string } }) =>
-          Promise.resolve(makeUnit(where.id, where.id)),
-      );
-
       // Conversion: tsp → tbsp returns 1/3
       mockConversion.convert.mockImplementation(
         (amount: number, fromId: string, toId: string) => {
@@ -303,11 +291,6 @@ describe('GroceryService', () => {
         makeRecipe('r2', 2, [makeRecipeIngredient('chicken', null, 1)]),
       ]);
 
-      mockPrisma.unit.findUnique.mockImplementation(
-        ({ where }: { where: { id: string } }) =>
-          Promise.resolve(makeUnit(where.id, where.id)),
-      );
-
       const createdList = { id: 'gl1', items: [] };
       mockPrisma.groceryList.create.mockResolvedValue(createdList);
 
@@ -323,7 +306,8 @@ describe('GroceryService', () => {
       // Both entries are kept: the 250g entry and the null-unit count
       expect(chickenItems).toHaveLength(2);
       expect(chickenItems?.some((x) => x.unitId === 'g')).toBe(true);
-      expect(chickenItems?.some((x) => x.unitId === null)).toBe(true);
+      // null-unit items have unitId omitted (undefined) — use loose equality
+      expect(chickenItems?.some((x) => x.unitId == null)).toBe(true);
     });
   });
 

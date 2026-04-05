@@ -130,12 +130,22 @@ export interface Plan {
 
 // ─── Grocery List ─────────────────────────────────────────────────────────────
 
+export interface GroceryItemSource {
+  id: string;
+  recipeId: string;
+  day: DayOfWeek;
+  amount: number;
+  unit: Unit | null;
+  recipe: { id: string; title: string };
+}
+
 export interface GroceryItem {
   id: string;
   totalAmount: number;
   unit: Unit;
   isChecked: boolean;
   ingredient: Ingredient;
+  sources: GroceryItemSource[];
 }
 
 export interface GroceryList {

@@ -30,7 +30,24 @@ export class GroceryService {
     // separately (same recipe on two days = 2× the ingredients).
     const aggregated = new Map<
       string,
-      { ingredientId: string; totalAmount: number; unitId: string | null }
+      {
+        ingredientId: string;
+        totalAmount: number;
+        unitId: string | null;
+        unit: Unit | null;
+      }
+    >();
+
+    // Track which recipe+day contributed to each ingredient (keyed by ingredientId)
+    // Each entry records the scaled amount and unit for that specific recipe contribution.
+    const sourcesMap = new Map<
+      string,
+      Array<{
+        recipeId: string;
+        day: string;
+        amount: number;
+        unitId: string | null;
+      }>
     >();
 
     const recipeIds = plan.meals.map((m) => m.recipeId);
@@ -58,25 +75,71 @@ export class GroceryService {
             ingredientId: ri.ingredientId,
             totalAmount: ri.amount * scale,
             unitId: ri.unitId,
+            unit: ri.unit ?? null,
           });
         }
+
+        // Record source: accumulate amount per recipe+day+unit combination
+        const sources = sourcesMap.get(ri.ingredientId) ?? [];
+        const unitId = ri.unitId ?? null;
+        const existing_src = sources.find(
+          (s) =>
+            s.recipeId === meal.recipeId &&
+            s.day === meal.day &&
+            s.unitId === unitId,
+        );
+        if (existing_src) {
+          existing_src.amount += ri.amount * scale;
+        } else {
+          sources.push({
+            recipeId: meal.recipeId,
+            day: meal.day,
+            amount: ri.amount * scale,
+            unitId,
+          });
+        }
+        sourcesMap.set(ri.ingredientId, sources);
       }
     }
 
     // Merge entries with the same ingredient but different convertible units
     const merged = await this.mergeConvertibleUnits(aggregated);
 
+    // Strip unitId when null — passing explicit null triggers Prisma v7 FK validation
+    // which calls unit.findUnique({ where: { id: null } }) and throws. Omitting the
+    // field lets the DB default the column to NULL without validation.
+    const itemsToCreate = Array.from(merged.values()).map(
+      ({ unitId, ...rest }) => ({
+        ...rest,
+        ...(unitId !== null ? { unitId } : {}),
+      }),
+    );
+
     const list = await this.prisma.groceryList.create({
       data: {
         weeklyPlanId: planId,
-        items: {
-          create: Array.from(merged.values()),
-        },
+        items: { create: itemsToCreate },
       },
       include: {
         items: { include: { ingredient: true, unit: true } },
       },
     });
+
+    // Attach sources to each created item
+    const sourceRecords = list.items.flatMap((item) =>
+      (sourcesMap.get(item.ingredientId) ?? []).map((s) => ({
+        groceryListItemId: item.id,
+        recipeId: s.recipeId,
+        day: s.day as import('@prisma/client').DayOfWeek,
+        amount: s.amount,
+        ...(s.unitId !== null ? { unitId: s.unitId } : {}),
+      })),
+    );
+    if (sourceRecords.length > 0) {
+      await this.prisma.groceryListItemSource.createMany({
+        data: sourceRecords,
+      });
+    }
 
     return list;
   }
@@ -90,7 +153,12 @@ export class GroceryService {
   private async mergeConvertibleUnits(
     aggregated: Map<
       string,
-      { ingredientId: string; totalAmount: number; unitId: string | null }
+      {
+        ingredientId: string;
+        totalAmount: number;
+        unitId: string | null;
+        unit: Unit | null;
+      }
     >,
   ): Promise<
     Map<
@@ -111,12 +179,8 @@ export class GroceryService {
     >();
 
     for (const [key, entry] of aggregated) {
-      const unit =
-        entry.unitId != null
-          ? await this.prisma.unit.findUnique({ where: { id: entry.unitId } })
-          : null;
       const group = byIngredient.get(entry.ingredientId) ?? [];
-      group.push({ key, ...entry, unit });
+      group.push({ key, ...entry });
       byIngredient.set(entry.ingredientId, group);
     }
 
@@ -239,7 +303,16 @@ export class GroceryService {
       where: { weeklyPlanId: planId },
       include: {
         items: {
-          include: { ingredient: { include: { category: true } }, unit: true },
+          include: {
+            ingredient: { include: { category: true } },
+            unit: true,
+            sources: {
+              include: {
+                recipe: { select: { id: true, title: true } },
+                unit: true,
+              },
+            },
+          },
           orderBy: [
             { ingredient: { category: { name: 'asc' } } },
             { ingredient: { name: 'asc' } },

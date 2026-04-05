@@ -51,10 +51,11 @@ model Unit {
   name   String
   type   UnitType
 
-  conversionsFrom   UnitConversion[]   @relation("FromUnit")
-  conversionsTo     UnitConversion[]   @relation("ToUnit")
-  recipeIngredients RecipeIngredient[]
-  groceryListItems  GroceryListItem[]
+  conversionsFrom        UnitConversion[]        @relation("FromUnit")
+  conversionsTo          UnitConversion[]        @relation("ToUnit")
+  recipeIngredients      RecipeIngredient[]
+  groceryListItems       GroceryListItem[]
+  groceryListItemSources GroceryListItemSource[]
 
   @@map("units")
 }
@@ -187,6 +188,7 @@ model Recipe {
   tags        RecipeTag[]
   planMeals   WeeklyPlanMeal[]
   favorites   FavoriteRecipe[]
+  groceryItemSources GroceryListItemSource[]
 
   @@map("recipes")
 }
@@ -269,11 +271,27 @@ model GroceryListItem {
   totalAmount   Float
   isChecked     Boolean     @default(false)
 
-  groceryList GroceryList @relation(fields: [groceryListId], references: [id], onDelete: Cascade)
-  ingredient  Ingredient  @relation(fields: [ingredientId], references: [id])
-  unit        Unit?       @relation(fields: [unitId],       references: [id])
+  groceryList GroceryList            @relation(fields: [groceryListId], references: [id], onDelete: Cascade)
+  ingredient  Ingredient             @relation(fields: [ingredientId], references: [id])
+  unit        Unit?                  @relation(fields: [unitId],       references: [id])
+  sources     GroceryListItemSource[]
 
   @@map("grocery_list_items")
+}
+
+model GroceryListItemSource {
+  id                String    @id @default(cuid())
+  groceryListItemId String
+  recipeId          String
+  day               DayOfWeek
+  amount            Float     @default(0)
+  unitId            String?
+
+  groceryListItem GroceryListItem @relation(fields: [groceryListItemId], references: [id], onDelete: Cascade)
+  recipe          Recipe          @relation(fields: [recipeId],          references: [id])
+  unit            Unit?           @relation(fields: [unitId],            references: [id])
+
+  @@map("grocery_list_item_sources")
 }
 
 model FavoriteRecipe {

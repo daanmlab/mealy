@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
-import { groceryApi, type GroceryList, type GroceryItem } from '@/lib/api';
+import { groceryApi, type GroceryList, type GroceryItem, type GroceryItemSource } from '@/lib/api';
 
 const CATEGORY_LABELS: Record<string, string> = {
   produce: '🥦 Produce',
@@ -18,12 +18,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: '📦 Other',
 };
 
+const DAY_LABELS: Record<string, string> = {
+  monday: 'Mon',
+  tuesday: 'Tue',
+  wednesday: 'Wed',
+  thursday: 'Thu',
+  friday: 'Fri',
+  saturday: 'Sat',
+  sunday: 'Sun',
+};
+
 export default function GroceryListPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: planId } = use(params);
   const router = useRouter();
   const [list, setList] = useState<GroceryList | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [expandedIngredientId, setExpandedIngredientId] = useState<string | null>(null);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -120,6 +131,22 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
     return item.unit ? `${formatAmount(item.totalAmount)} ${item.unit.symbol}` : formatAmount(item.totalAmount);
   }
 
+  /** De-duplicate sources across all sub-items for the same ingredient group */
+  function mergeSources(subItems: GroceryItem[]): GroceryItemSource[] {
+    const seen = new Set<string>();
+    const result: GroceryItemSource[] = [];
+    for (const item of subItems) {
+      for (const src of item.sources ?? []) {
+        const key = `${src.recipeId}:${src.day}:${src.unit?.id ?? 'null'}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          result.push(src);
+        }
+      }
+    }
+    return result;
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -170,47 +197,100 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
                   );
                   const measurement = sorted.map(formatMeasurement).join(' + ');
                   const firstItem = subItems[0]!;
+                  const ingredientId = firstItem.ingredient.id;
+                  const sources = mergeSources(subItems);
+                  const isExpanded = expandedIngredientId === ingredientId;
 
                   return (
-                    <button
-                      key={firstItem.ingredient.id}
-                      onClick={async () => {
-                        // If all checked → uncheck all; otherwise check all
-                        const targets = allChecked
-                          ? subItems
-                          : subItems.filter((i) => !i.isChecked);
-                        for (const item of targets) await handleToggle(item);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
-                        allChecked ? 'bg-gray-50' : 'bg-white border border-gray-100'
-                      }`}
-                    >
-                      <span
-                        className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                          allChecked
-                            ? 'border-green-500 bg-green-500'
-                            : anyChecked
-                              ? 'border-green-300 bg-green-100'
-                              : 'border-gray-300'
+                    <div key={ingredientId}>
+                      <button
+                        onClick={async () => {
+                          // If all checked → uncheck all; otherwise check all
+                          const targets = allChecked
+                            ? subItems
+                            : subItems.filter((i) => !i.isChecked);
+                          for (const item of targets) await handleToggle(item);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
+                          allChecked ? 'bg-gray-50' : 'bg-white border border-gray-100'
                         }`}
                       >
-                        {allChecked && (
-                          <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </span>
-                      <span
-                        className={`flex-1 text-sm font-medium capitalize ${
-                          allChecked ? 'line-through text-gray-400' : 'text-gray-800'
-                        }`}
-                      >
-                        {firstItem.ingredient.name}
-                      </span>
-                      <span className="text-xs text-gray-400 shrink-0">
-                        {measurement}
-                      </span>
-                    </button>
+                        <span
+                          className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                            allChecked
+                              ? 'border-green-500 bg-green-500'
+                              : anyChecked
+                                ? 'border-green-300 bg-green-100'
+                                : 'border-gray-300'
+                          }`}
+                        >
+                          {allChecked && (
+                            <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span
+                            className={`block text-sm font-medium capitalize ${
+                              allChecked ? 'line-through text-gray-400' : 'text-gray-800'
+                            }`}
+                          >
+                            {firstItem.ingredient.name}
+                          </span>
+                          {sources.length === 1 && (
+                            <span className="block text-xs text-gray-400 mt-0.5">
+                              {sources[0]?.recipe.title}
+                              {' · '}
+                              {DAY_LABELS[sources[0]?.day ?? ''] ?? sources[0]?.day}
+                              {' · '}
+                              {formatAmount(sources[0]!.amount)}{sources[0]?.unit ? ` ${sources[0].unit.symbol}` : ''}
+                            </span>
+                          )}
+                          {sources.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedIngredientId(isExpanded ? null : ingredientId);
+                              }}
+                              className="flex items-center gap-1 text-xs text-gray-400 mt-0.5 hover:text-gray-600 transition-colors"
+                            >
+                              <svg
+                                className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                              {sources.length} recipes
+                            </button>
+                          )}
+                        </span>
+                        <span className="text-xs text-gray-400 shrink-0">
+                          {measurement}
+                        </span>
+                      </button>
+
+                      {/* Expanded source list for multi-recipe ingredients */}
+                      {sources.length > 1 && isExpanded && (
+                        <div className="ml-12 mr-4 mt-1 mb-2 space-y-1">
+                          {sources.map((src) => (
+                            <div
+                              key={`${src.recipeId}:${src.day}:${src.unit?.id ?? 'null'}`}
+                              className="flex items-center justify-between text-xs text-gray-500 py-1 px-3 bg-gray-50 rounded-lg"
+                            >
+                              <span>{src.recipe.title}</span>
+                              <span className="text-gray-400 flex items-center gap-2">
+                                <span>{DAY_LABELS[src.day] ?? src.day}</span>
+                                <span className="text-gray-300">·</span>
+                                <span>{formatAmount(src.amount)}{src.unit ? ` ${src.unit.symbol}` : ''}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -220,3 +300,4 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 }
+
