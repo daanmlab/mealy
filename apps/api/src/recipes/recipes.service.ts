@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CatalogService } from '../catalog/catalog.service';
 import { CreateRecipeDto, RecipeQueryDto } from './recipes.dto';
 
 @Injectable()
 export class RecipesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly catalog: CatalogService,
+  ) {}
 
   private readonly include = {
     groups: { orderBy: { sortOrder: 'asc' as const } },
@@ -99,10 +103,46 @@ export class RecipesService {
   }
 
   async create(dto: CreateRecipeDto) {
+    const UNIT_FALLBACK = 'unit'; // treated as null — means "countable, no real unit"
+
+    // ── Pre-transaction: resolve ingredient names + infer missing units via LLM ─
+    // Both happen OUTSIDE the transaction so LLM calls don't hold DB locks.
+    const resolvedIngredients = await Promise.all(
+      dto.ingredients.map(async (ing) => {
+        const resolvedIngredient = await this.catalog.resolveIngredient(
+          ing.name,
+        );
+
+        // For countable ingredients (no real unit), try to infer one via LLM
+        let unitSymbol = ing.unitSymbol;
+        let amount = ing.amount;
+        if (unitSymbol === UNIT_FALLBACK || !unitSymbol) {
+          const inferred = await this.catalog.inferUnit(
+            ing.name,
+            ing.amount,
+            dto.title,
+          );
+          if (inferred) {
+            unitSymbol = inferred.unitSymbol;
+            amount = inferred.amount;
+          } else {
+            unitSymbol = UNIT_FALLBACK; // stay as null-unit
+          }
+        }
+
+        return { ...ing, unitSymbol, amount, resolvedIngredient };
+      }),
+    );
+
     return this.prisma.$transaction(async (tx) => {
-      // 1. Upsert Unit records for all unique unit symbols
+      // 1. Upsert Unit records for all unique non-"unit" symbols
+      // Use resolvedIngredients (post-LLM) so inferred unit symbols are included
       const uniqueUnitSymbols = [
-        ...new Set(dto.ingredients.map((i) => i.unitSymbol)),
+        ...new Set(
+          resolvedIngredients
+            .map((i) => i.unitSymbol)
+            .filter((s) => s !== UNIT_FALLBACK),
+        ),
       ];
       const unitRecords = await Promise.all(
         uniqueUnitSymbols.map((symbol) =>
@@ -153,38 +193,46 @@ export class RecipesService {
         tagRecords.map((t, i) => [uniqueTagSlugs[i], t]),
       );
 
-      // 4. Deduplicate ingredients by (name, groupName), summing amounts for dupes
+      // 4. Deduplicate by (resolvedIngredientId, groupName), summing amounts for dupes
       const deduped = new Map<
         string,
         {
-          name: string;
+          ingredientId: string;
           amount: number;
           unitSymbol: string;
           categorySlug: string;
           groupName?: string;
         }
       >();
-      for (const ing of dto.ingredients) {
-        const key = `${ing.name}::${ing.groupName ?? ''}`;
+      for (const ing of resolvedIngredients) {
+        const key = `${ing.resolvedIngredient.id}::${ing.groupName ?? ''}`;
         const existing = deduped.get(key);
         if (existing) {
           existing.amount += ing.amount;
         } else {
-          deduped.set(key, { ...ing });
+          deduped.set(key, {
+            ingredientId: ing.resolvedIngredient.id,
+            amount: ing.amount,
+            unitSymbol: ing.unitSymbol,
+            categorySlug: ing.categorySlug,
+            groupName: ing.groupName,
+          });
         }
       }
       const uniqueIngredients = [...deduped.values()];
 
-      // 5. Upsert Ingredient records (update categoryId if we now know it)
-      const ingredientRecords = await Promise.all(
-        uniqueIngredients.map((ing) => {
-          const categoryId = categoryBySlug[ing.categorySlug]?.id ?? null;
-          return tx.ingredient.upsert({
-            where: { name: ing.name },
-            create: { name: ing.name, categoryId },
-            update: { ...(categoryId && { categoryId }) },
-          });
-        }),
+      // 5. Update categoryId on resolved ingredients if we now know it
+      await Promise.all(
+        uniqueIngredients
+          .filter((ing) => ing.categorySlug)
+          .map((ing) => {
+            const categoryId = categoryBySlug[ing.categorySlug]?.id;
+            if (!categoryId) return Promise.resolve();
+            return tx.ingredient.update({
+              where: { id: ing.ingredientId },
+              data: { categoryId },
+            });
+          }),
       );
 
       // 6. Create the Recipe with RecipeTag join rows
@@ -224,12 +272,12 @@ export class RecipesService {
         groupRecords.map((g) => [g.name, g]),
       );
 
-      // 8. Create RecipeIngredient rows
+      // 8. Create RecipeIngredient rows (unitId is null for countable/unit-less items)
       await tx.recipeIngredient.createMany({
-        data: uniqueIngredients.map((ing, i) => ({
+        data: uniqueIngredients.map((ing) => ({
           recipeId: recipe.id,
-          ingredientId: ingredientRecords[i].id,
-          unitId: unitBySymbol[ing.unitSymbol].id,
+          ingredientId: ing.ingredientId,
+          unitId: unitBySymbol[ing.unitSymbol]?.id ?? null,
           groupId: ing.groupName
             ? (groupByName[ing.groupName]?.id ?? null)
             : null,

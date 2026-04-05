@@ -5,7 +5,8 @@ import { extractFromJsonLd } from './extractors/jsonld';
 import { extractWithLlm } from './extractors/llm';
 import { normalize } from './normalizer';
 import { verifyAndFix, groupIngredients } from './verifier';
-import { postRecipe, ScrapeResult } from './api-client';
+import { postRecipe, getCatalog, ScrapeResult } from './api-client';
+import { canonicalizeIngredients } from './canonicalizer';
 import { DEFAULT_URLS } from './default-urls';
 
 const program = new Command();
@@ -23,6 +24,10 @@ program
     'Skip AI quality verification (verification runs by default when OPENAI_API_KEY is set)',
   )
   .option(
+    '--no-canonicalize',
+    'Skip LLM ingredient/unit canonicalization against the DB (runs by default when OPENAI_API_KEY is set)',
+  )
+  .option(
     '--clean-model <model>',
     'Model used to fix issues found during verification',
     'gpt-4o-mini',
@@ -34,6 +39,7 @@ async function scrapeUrl(
   url: string,
   dryRun: boolean,
   verify: boolean,
+  canonicalize: boolean,
   cleanModel: string,
   apiUrl: string,
   apiKey: string,
@@ -102,13 +108,39 @@ async function scrapeUrl(
     `  ✓ Normalized: "${normalized.title}" (${normalized.ingredients.length} ingredients, ${normalized.steps.length} steps)`,
   );
 
+  // 6. LLM canonicalization — remap ingredient names/units against the live DB inventory
+  if (canonicalize && process.env.OPENAI_API_KEY && !dryRun) {
+    try {
+      const catalog = await getCatalog(apiUrl, apiKey);
+      const canonical = await canonicalizeIngredients(
+        normalized.ingredients,
+        catalog.units,
+        catalog.ingredients,
+        cleanModel,
+      );
+      const changed = canonical.filter(
+        (ing, i) =>
+          ing.name !== normalized.ingredients[i]?.name ||
+          ing.unitSymbol !== normalized.ingredients[i]?.unitSymbol,
+      ).length;
+      if (changed > 0) {
+        console.log(`  ✓ Canonicalized: ${changed} ingredient(s) remapped to known DB forms`);
+      } else {
+        console.log('  ✓ Canonicalized: all ingredients already match known DB forms');
+      }
+      normalized.ingredients = canonical;
+    } catch (err) {
+      console.warn('  ⚠ Canonicalization skipped:', err instanceof Error ? err.message : err);
+    }
+  }
+
   if (dryRun) {
     console.log('  [dry-run] Would POST:');
     console.log(JSON.stringify(normalized, null, 2));
     return { url, success: true, title: normalized.title };
   }
 
-  // 6. POST to API
+  // 7. POST to API
   try {
     const id = await postRecipe(normalized, apiUrl, apiKey);
     console.log(`  ✓ Saved as recipe ${id}`);
@@ -126,6 +158,7 @@ async function main() {
     urls?: string[];
     dryRun: boolean;
     verify: boolean;
+    canonicalize: boolean;
     cleanModel: string;
     apiUrl: string;
     apiKey: string;
@@ -148,6 +181,7 @@ async function main() {
       url,
       opts.dryRun,
       opts.verify,
+      opts.canonicalize,
       opts.cleanModel,
       opts.apiUrl,
       opts.apiKey,

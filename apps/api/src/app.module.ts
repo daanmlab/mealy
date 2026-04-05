@@ -12,11 +12,12 @@ import { RecipesModule } from './recipes/recipes.module';
 import { PlansModule } from './plans/plans.module';
 import { GroceryModule } from './grocery/grocery.module';
 import { FavoritesModule } from './favorites/favorites.module';
+import { CatalogModule } from './catalog/catalog.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     ScheduleModule.forRoot(),
     PrismaModule,
     UsersModule,
@@ -25,6 +26,7 @@ import { FavoritesModule } from './favorites/favorites.module';
     PlansModule,
     GroceryModule,
     FavoritesModule,
+    CatalogModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

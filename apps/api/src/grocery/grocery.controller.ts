@@ -11,7 +11,7 @@ export class GroceryController {
 
   @Post()
   generate(@Param('planId') planId: string, @CurrentUser() user: User) {
-    return this.grocery.generateList(planId, user.id);
+    return this.grocery.generateList(planId, user);
   }
 
   @Get()

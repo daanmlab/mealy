@@ -21,6 +21,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "ts-node prisma/seed.ts",
+    "db:seed-conversions": "ts-node src/catalog/seed-conversions.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {
@@ -45,6 +46,7 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.0.3",
     "ioredis": "^5.10.1",
+    "openai": "^6.33.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",

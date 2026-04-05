@@ -87,7 +87,7 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  // Group items by category slug
+  // Group items by category slug, then by ingredientId within each category
   const grouped = list.items.reduce<Record<string, GroceryItem[]>>((acc, item) => {
     const cat = item.ingredient.category?.slug ?? 'other';
     if (!acc[cat]) acc[cat] = [];
@@ -95,8 +95,30 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
     return acc;
   }, {});
 
+  // Within each category group items with the same ingredientId into one visual row
+  type IngredientGroup = { items: GroceryItem[] };
+  const groupedByIngredient = Object.fromEntries(
+    Object.entries(grouped).map(([cat, items]) => {
+      const byIngredient = new Map<string, IngredientGroup>();
+      for (const item of items) {
+        const ing = item.ingredient.id;
+        if (!byIngredient.has(ing)) byIngredient.set(ing, { items: [] });
+        byIngredient.get(ing)!.items.push(item);
+      }
+      return [cat, [...byIngredient.values()]];
+    }),
+  );
+
   const checkedCount = list.items.filter((i) => i.isChecked).length;
   const total = list.items.length;
+
+  function formatAmount(amount: number): string {
+    return amount % 1 === 0 ? String(amount) : amount.toFixed(1);
+  }
+
+  function formatMeasurement(item: GroceryItem): string {
+    return item.unit ? `${formatAmount(item.totalAmount)} ${item.unit.symbol}` : formatAmount(item.totalAmount);
+  }
 
   return (
     <div>
@@ -131,47 +153,66 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="space-y-6">
-        {Object.entries(grouped)
+        {Object.entries(groupedByIngredient)
           .sort(([a], [b]) => a.localeCompare(b))
-          .map(([category, items]) => (
+          .map(([category, ingredientGroups]) => (
             <div key={category}>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
                 {CATEGORY_LABELS[category] ?? category}
               </h3>
               <div className="space-y-1">
-                {items.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleToggle(item)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
-                      item.isChecked ? 'bg-gray-50' : 'bg-white border border-gray-100'
-                    }`}
-                  >
-                    <span
-                      className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                        item.isChecked
-                          ? 'border-green-500 bg-green-500'
-                          : 'border-gray-300'
+                {ingredientGroups.map(({ items: subItems }) => {
+                  const allChecked = subItems.every((i) => i.isChecked);
+                  const anyChecked = subItems.some((i) => i.isChecked);
+                  // Sort: real-unit entries first, null-unit (count) entries last
+                  const sorted = [...subItems].sort((a, b) =>
+                    a.unit && !b.unit ? -1 : !a.unit && b.unit ? 1 : 0,
+                  );
+                  const measurement = sorted.map(formatMeasurement).join(' + ');
+                  const firstItem = subItems[0]!;
+
+                  return (
+                    <button
+                      key={firstItem.ingredient.id}
+                      onClick={async () => {
+                        // If all checked → uncheck all; otherwise check all
+                        const targets = allChecked
+                          ? subItems
+                          : subItems.filter((i) => !i.isChecked);
+                        for (const item of targets) await handleToggle(item);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
+                        allChecked ? 'bg-gray-50' : 'bg-white border border-gray-100'
                       }`}
                     >
-                      {item.isChecked && (
-                        <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
-                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </span>
-                    <span
-                      className={`flex-1 text-sm font-medium capitalize ${
-                        item.isChecked ? 'line-through text-gray-400' : 'text-gray-800'
-                      }`}
-                    >
-                      {item.ingredient.name}
-                    </span>
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {item.totalAmount % 1 === 0 ? item.totalAmount : item.totalAmount.toFixed(1)} {item.unit.symbol}
-                    </span>
-                  </button>
-                ))}
+                      <span
+                        className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                          allChecked
+                            ? 'border-green-500 bg-green-500'
+                            : anyChecked
+                              ? 'border-green-300 bg-green-100'
+                              : 'border-gray-300'
+                        }`}
+                      >
+                        {allChecked && (
+                          <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </span>
+                      <span
+                        className={`flex-1 text-sm font-medium capitalize ${
+                          allChecked ? 'line-through text-gray-400' : 'text-gray-800'
+                        }`}
+                      >
+                        {firstItem.ingredient.name}
+                      </span>
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {measurement}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}

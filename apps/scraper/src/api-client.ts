@@ -8,6 +8,23 @@ export interface ScrapeResult {
   error?: string;
 }
 
+export interface Catalog {
+  units: string[];
+  ingredients: string[];
+}
+
+export async function getCatalog(apiUrl: string, apiKey: string): Promise<Catalog> {
+  const response = await fetch(`${apiUrl}/catalog`, {
+    headers: { 'X-Api-Key': apiKey },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Catalog fetch failed ${response.status}`);
+  }
+
+  return (await response.json()) as Catalog;
+}
+
 export async function postRecipe(
   recipe: NormalizedRecipe,
   apiUrl: string,

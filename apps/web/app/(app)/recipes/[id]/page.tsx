@@ -89,7 +89,7 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
               <li key={ri.id} className="flex items-center justify-between text-sm">
                 <span className="text-gray-700 capitalize">{ri.ingredient.name}</span>
                 <span className="text-gray-400">
-                  {ri.amount % 1 === 0 ? ri.amount : ri.amount.toFixed(1)} {ri.unit.symbol}
+                  {ri.amount % 1 === 0 ? ri.amount : ri.amount.toFixed(1)} {ri?.unit?.symbol ?? ""}
                 </span>
               </li>
             ))}

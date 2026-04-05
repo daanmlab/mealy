@@ -154,8 +154,18 @@ model Ingredient {
 
   recipeIngredients RecipeIngredient[]
   groceryListItems  GroceryListItem[]
+  aliases           IngredientAlias[]
 
   @@map("ingredients")
+}
+
+model IngredientAlias {
+  id           String     @id @default(cuid())
+  alias        String     @unique // normalized: lowercase + trim
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("ingredient_aliases")
 }
 
 model Recipe {
@@ -197,13 +207,13 @@ model RecipeIngredient {
   recipeId     String
   ingredientId String
   groupId      String?
-  unitId       String
+  unitId       String?
   amount       Float
 
   recipe     Recipe           @relation(fields: [recipeId],     references: [id], onDelete: Cascade)
   ingredient Ingredient       @relation(fields: [ingredientId], references: [id])
   group      IngredientGroup? @relation(fields: [groupId],      references: [id])
-  unit       Unit             @relation(fields: [unitId],       references: [id])
+  unit       Unit?            @relation(fields: [unitId],       references: [id])
 
   @@index([recipeId])
   @@map("recipe_ingredients")
@@ -255,13 +265,13 @@ model GroceryListItem {
   id            String      @id @default(cuid())
   groceryListId String
   ingredientId  String
-  unitId        String
+  unitId        String?
   totalAmount   Float
   isChecked     Boolean     @default(false)
 
   groceryList GroceryList @relation(fields: [groceryListId], references: [id], onDelete: Cascade)
   ingredient  Ingredient  @relation(fields: [ingredientId], references: [id])
-  unit        Unit        @relation(fields: [unitId],       references: [id])
+  unit        Unit?       @relation(fields: [unitId],       references: [id])
 
   @@map("grocery_list_items")
 }

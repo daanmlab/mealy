@@ -1,9 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PlanStatus } from '@prisma/client';
+import { CookTimePreference, FoodGoal, PlanStatus } from '@prisma/client';
+import type { Unit, User } from '@prisma/client';
 import { GroceryService } from './grocery.service';
 import { PlansService } from '../plans/plans.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConversionService } from '../catalog/conversion.service';
 
 const mockPrisma = {
   groceryList: {
@@ -12,6 +14,7 @@ const mockPrisma = {
     findUnique: jest.fn(),
   },
   recipe: { findMany: jest.fn() },
+  unit: { findUnique: jest.fn() },
   groceryListItem: {
     findUnique: jest.fn(),
     update: jest.fn(),
@@ -22,13 +25,18 @@ const mockPlans = {
   getPlanById: jest.fn(),
 };
 
+const mockConversion = {
+  convert: jest.fn().mockResolvedValue(null),
+  ensureConversion: jest.fn().mockResolvedValue(undefined),
+};
+
 const makeIngredient = (id: string, name: string) => ({
   id,
   name,
   category: { id: 'cat1', name: 'Produce', slug: 'produce' },
 });
 
-const makeUnit = (id: string, symbol: string) => ({
+const makeUnit = (id: string, symbol: string): Unit => ({
   id,
   symbol,
   name: symbol,
@@ -37,26 +45,69 @@ const makeUnit = (id: string, symbol: string) => ({
 
 const makeRecipeIngredient = (
   ingredientId: string,
-  unitId: string,
+  unitId: string | null,
   amount: number,
 ) => ({
   ingredientId,
   unitId,
   amount,
   ingredient: makeIngredient(ingredientId, `ing-${ingredientId}`),
-  unit: makeUnit(unitId, 'g'),
+  unit: unitId ? makeUnit(unitId, unitId) : null,
 });
+
+const makeUser = (peopleCount: number): User => ({
+  id: 'u1',
+  email: 'test@example.com',
+  name: null,
+  avatarUrl: null,
+  password: null,
+  peopleCount,
+  mealsPerWeek: 5,
+  cookTime: CookTimePreference.any,
+  goal: FoodGoal.healthy,
+  dislikes: [],
+  onboardingDone: false,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+});
+
+const makeRecipe = (
+  id: string,
+  servings: number,
+  ingredients: ReturnType<typeof makeRecipeIngredient>[],
+) => ({ id, servings, ingredients });
+
+type CreateArg = {
+  data: {
+    items: {
+      create: {
+        ingredientId: string;
+        totalAmount: number;
+        unitId?: string | null;
+      }[];
+    };
+  };
+};
 
 describe('GroceryService', () => {
   let service: GroceryService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Default: unit.findUnique returns a unit based on the id
+    mockPrisma.unit.findUnique.mockImplementation(
+      ({ where }: { where: { id: string } }) =>
+        Promise.resolve(makeUnit(where.id, where.id)),
+    );
+    // Default: no conversions exist (returns null → keep separate)
+    mockConversion.convert.mockResolvedValue(null);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GroceryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PlansService, useValue: mockPlans },
+        { provide: ConversionService, useValue: mockConversion },
       ],
     }).compile();
     service = module.get(GroceryService);
@@ -71,12 +122,14 @@ describe('GroceryService', () => {
         meals: [],
       });
 
-      await expect(service.generateList('p1', 'u1')).rejects.toThrow(
+      await expect(service.generateList('p1', makeUser(2))).rejects.toThrow(
         NotFoundException,
       );
     });
 
-    it('aggregates ingredients from all meals into a single grocery list', async () => {
+    it('aggregates and scales ingredients across all meals', async () => {
+      // user cooks for 4, recipes are designed for 2 → scale factor = 2
+      const user = makeUser(4);
       const meals = [{ recipeId: 'r1' }, { recipeId: 'r2' }];
       mockPlans.getPlanById.mockResolvedValue({
         id: 'p1',
@@ -85,44 +138,194 @@ describe('GroceryService', () => {
       });
       mockPrisma.groceryList.deleteMany.mockResolvedValue({});
 
-      // Both recipes share ingredient i1; r2 also has i2
+      // Both recipes share ingredient i1; r2 also has i2; both have servings=2
       mockPrisma.recipe.findMany.mockResolvedValue([
-        {
-          id: 'r1',
-          ingredients: [makeRecipeIngredient('i1', 'unit1', 100)],
-        },
-        {
-          id: 'r2',
-          ingredients: [
-            makeRecipeIngredient('i1', 'unit1', 50),
-            makeRecipeIngredient('i2', 'unit1', 200),
-          ],
-        },
+        makeRecipe('r1', 2, [makeRecipeIngredient('i1', 'unit1', 100)]),
+        makeRecipe('r2', 2, [
+          makeRecipeIngredient('i1', 'unit1', 50),
+          makeRecipeIngredient('i2', 'unit1', 200),
+        ]),
       ]);
 
       const createdList = { id: 'gl1', items: [] };
       mockPrisma.groceryList.create.mockResolvedValue(createdList);
 
-      const result = await service.generateList('p1', 'u1');
+      const result = await service.generateList('p1', user);
       expect(result).toBe(createdList);
 
-      // Verify i1 amounts were summed (100 + 50 = 150)
-
       const createCall = (
-        mockPrisma.groceryList.create.mock.calls as any[][]
-      )[0]?.[0] as {
-        data: {
-          items: { create: { ingredientId: string; totalAmount: number }[] };
-        };
-      };
-      const i1Item = createCall.data.items.create.find(
+        mockPrisma.groceryList.create.mock.calls as [CreateArg][]
+      )[0]?.[0];
+
+      // i1: (100 + 50) * scale(4/2) = 150 * 2 = 300
+      const i1 = createCall?.data.items.create.find(
         (x) => x.ingredientId === 'i1',
       );
-      expect(i1Item?.totalAmount).toBe(150);
+      expect(i1?.totalAmount).toBe(300);
+
+      // i2: 200 * 2 = 400
+      const i2 = createCall?.data.items.create.find(
+        (x) => x.ingredientId === 'i2',
+      );
+      expect(i2?.totalAmount).toBe(400);
+    });
+
+    it('counts the same recipe multiple times when it appears in several meals', async () => {
+      // spaghetti on Monday and Wednesday → ingredients × 2 meals
+      const user = makeUser(2);
+      // Two meals both pointing at the same recipe
+      const meals = [{ recipeId: 'r1' }, { recipeId: 'r1' }];
+      mockPlans.getPlanById.mockResolvedValue({
+        id: 'p1',
+        status: PlanStatus.confirmed,
+        meals,
+      });
+      mockPrisma.groceryList.deleteMany.mockResolvedValue({});
+
+      // findMany returns the recipe only once (deduplication by DB)
+      mockPrisma.recipe.findMany.mockResolvedValue([
+        makeRecipe('r1', 2, [makeRecipeIngredient('i1', 'unit1', 100)]),
+      ]);
+
+      const createdList = { id: 'gl1', items: [] };
+      mockPrisma.groceryList.create.mockResolvedValue(createdList);
+
+      await service.generateList('p1', user);
+
+      const createCall = (
+        mockPrisma.groceryList.create.mock.calls as [CreateArg][]
+      )[0]?.[0];
+
+      // 100 per meal × 2 meals × scale(2/2=1) = 200
+      const i1 = createCall?.data.items.create.find(
+        (x) => x.ingredientId === 'i1',
+      );
+      expect(i1?.totalAmount).toBe(200);
+    });
+
+    it('merges same-ingredient entries when a unit conversion exists', async () => {
+      // soy sauce: 1.5 tbsp (from recipe 1) + 2 tsp (from recipe 2)
+      // 2 tsp × (1 tbsp / 3 tsp) = 0.667 tbsp → total = 1.5 + 0.667 ≈ 2.167 tbsp
+      const user = makeUser(2); // scale = 1 (2 people / 2 servings)
+      mockPlans.getPlanById.mockResolvedValue({
+        id: 'p1',
+        status: PlanStatus.confirmed,
+        meals: [{ recipeId: 'r1' }, { recipeId: 'r2' }],
+      });
+      mockPrisma.groceryList.deleteMany.mockResolvedValue({});
+
+      mockPrisma.recipe.findMany.mockResolvedValue([
+        makeRecipe('r1', 2, [makeRecipeIngredient('soy-sauce', 'tbsp', 1.5)]),
+        makeRecipe('r2', 2, [makeRecipeIngredient('soy-sauce', 'tsp', 2)]),
+      ]);
+
+      // unit.findUnique returns units with correct symbols
+      mockPrisma.unit.findUnique.mockImplementation(
+        ({ where }: { where: { id: string } }) =>
+          Promise.resolve(makeUnit(where.id, where.id)),
+      );
+
+      // Conversion: tsp → tbsp returns 1/3
+      mockConversion.convert.mockImplementation(
+        (amount: number, fromId: string, toId: string) => {
+          if (fromId === 'tsp' && toId === 'tbsp')
+            return Promise.resolve(amount / 3);
+          if (fromId === 'tbsp' && toId === 'tbsp')
+            return Promise.resolve(amount);
+          return Promise.resolve(null);
+        },
+      );
+
+      const createdList = { id: 'gl1', items: [] };
+      mockPrisma.groceryList.create.mockResolvedValue(createdList);
+
+      await service.generateList('p1', user);
+
+      const createCall = (
+        mockPrisma.groceryList.create.mock.calls as [CreateArg][]
+      )[0]?.[0];
+
+      // Should have exactly 1 item for soy-sauce (merged)
+      const soySauceItems = createCall?.data.items.create.filter(
+        (x) => x.ingredientId === 'soy-sauce',
+      );
+      expect(soySauceItems).toHaveLength(1);
+
+      // 1.5 tbsp + (2 tsp → 0.667 tbsp) = 2.167 tbsp
+      expect(soySauceItems?.[0]?.totalAmount).toBeCloseTo(2.167, 2);
+    });
+    it('sums null-unit (countable) entries for the same ingredient', async () => {
+      // eggs: 2 from recipe 1 + 3 from recipe 2, no unit → should sum to 5
+      const user = makeUser(2);
+      mockPlans.getPlanById.mockResolvedValue({
+        id: 'p1',
+        status: PlanStatus.confirmed,
+        meals: [{ recipeId: 'r1' }, { recipeId: 'r2' }],
+      });
+      mockPrisma.groceryList.deleteMany.mockResolvedValue({});
+
+      mockPrisma.recipe.findMany.mockResolvedValue([
+        makeRecipe('r1', 2, [makeRecipeIngredient('eggs', null, 2)]),
+        makeRecipe('r2', 2, [makeRecipeIngredient('eggs', null, 3)]),
+      ]);
+
+      const createdList = { id: 'gl1', items: [] };
+      mockPrisma.groceryList.create.mockResolvedValue(createdList);
+
+      await service.generateList('p1', user);
+
+      const createCall = (
+        mockPrisma.groceryList.create.mock.calls as [CreateArg][]
+      )[0]?.[0];
+
+      const eggsItems = createCall?.data.items.create.filter(
+        (x) => x.ingredientId === 'eggs',
+      );
+      // Must appear exactly once (summed, not duplicated)
+      expect(eggsItems).toHaveLength(1);
+      // 2 + 3 = 5, scale = 1 (2 people / 2 servings)
+      expect(eggsItems?.[0]?.totalAmount).toBe(5);
+    });
+
+    it('keeps both null-unit and real-unit entries for the same ingredient (LLM fallback)', async () => {
+      // chicken breast: one recipe uses 250g, another uses 1 piece (null unit, LLM failed)
+      // → both entries should survive for frontend grouping
+      const user = makeUser(2);
+      mockPlans.getPlanById.mockResolvedValue({
+        id: 'p1',
+        status: PlanStatus.confirmed,
+        meals: [{ recipeId: 'r1' }, { recipeId: 'r2' }],
+      });
+      mockPrisma.groceryList.deleteMany.mockResolvedValue({});
+
+      mockPrisma.recipe.findMany.mockResolvedValue([
+        makeRecipe('r1', 2, [makeRecipeIngredient('chicken', 'g', 250)]),
+        makeRecipe('r2', 2, [makeRecipeIngredient('chicken', null, 1)]),
+      ]);
+
+      mockPrisma.unit.findUnique.mockImplementation(
+        ({ where }: { where: { id: string } }) =>
+          Promise.resolve(makeUnit(where.id, where.id)),
+      );
+
+      const createdList = { id: 'gl1', items: [] };
+      mockPrisma.groceryList.create.mockResolvedValue(createdList);
+
+      await service.generateList('p1', user);
+
+      const createCall = (
+        mockPrisma.groceryList.create.mock.calls as [CreateArg][]
+      )[0]?.[0];
+
+      const chickenItems = createCall?.data.items.create.filter(
+        (x) => x.ingredientId === 'chicken',
+      );
+      // Both entries are kept: the 250g entry and the null-unit count
+      expect(chickenItems).toHaveLength(2);
+      expect(chickenItems?.some((x) => x.unitId === 'g')).toBe(true);
+      expect(chickenItems?.some((x) => x.unitId === null)).toBe(true);
     });
   });
-
-  // ─── getList ─────────────────────────────────────────────────────────────────
 
   describe('getList', () => {
     it('throws NotFoundException if the list does not exist', async () => {

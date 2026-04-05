@@ -1,17 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Unit, User } from '@prisma/client';
+import { PlanStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlansService } from '../plans/plans.service';
-import { PlanStatus } from '@prisma/client';
+import { ConversionService } from '../catalog/conversion.service';
 
 @Injectable()
 export class GroceryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly plans: PlansService,
+    private readonly conversion: ConversionService,
   ) {}
 
-  async generateList(planId: string, userId: string) {
-    const plan = await this.plans.getPlanById(planId, userId);
+  async generateList(planId: string, user: User) {
+    const plan = await this.plans.getPlanById(planId, user.id);
     if (plan.status !== PlanStatus.confirmed) {
       throw new NotFoundException(
         'Plan must be confirmed before generating a grocery list',
@@ -23,10 +26,11 @@ export class GroceryService {
       where: { weeklyPlanId: planId },
     });
 
-    // Aggregate ingredients across all meals
+    // Aggregate ingredients across all meals, counting each meal occurrence
+    // separately (same recipe on two days = 2× the ingredients).
     const aggregated = new Map<
       string,
-      { ingredientId: string; totalAmount: number; unitId: string }
+      { ingredientId: string; totalAmount: number; unitId: string | null }
     >();
 
     const recipeIds = plan.meals.map((m) => m.recipeId);
@@ -34,28 +38,39 @@ export class GroceryService {
       where: { id: { in: recipeIds } },
       include: { ingredients: { include: { ingredient: true, unit: true } } },
     });
+    const recipeMap = new Map(recipes.map((r) => [r.id, r]));
 
-    for (const recipe of recipes) {
+    for (const meal of plan.meals) {
+      const recipe = recipeMap.get(meal.recipeId);
+      if (!recipe) continue;
+
+      // Scale amounts to the user's household size
+      const scale = user.peopleCount / (recipe.servings || 1);
+
       for (const ri of recipe.ingredients) {
-        const key = `${ri.ingredientId}:${ri.unitId}`;
+        // null unitId means countable — group separately per ingredient
+        const key = `${ri.ingredientId}:${ri.unitId ?? 'null'}`;
         const existing = aggregated.get(key);
         if (existing) {
-          existing.totalAmount += ri.amount;
+          existing.totalAmount += ri.amount * scale;
         } else {
           aggregated.set(key, {
             ingredientId: ri.ingredientId,
-            totalAmount: ri.amount,
+            totalAmount: ri.amount * scale,
             unitId: ri.unitId,
           });
         }
       }
     }
 
+    // Merge entries with the same ingredient but different convertible units
+    const merged = await this.mergeConvertibleUnits(aggregated);
+
     const list = await this.prisma.groceryList.create({
       data: {
         weeklyPlanId: planId,
         items: {
-          create: Array.from(aggregated.values()),
+          create: Array.from(merged.values()),
         },
       },
       include: {
@@ -64,6 +79,156 @@ export class GroceryService {
     });
 
     return list;
+  }
+
+  /**
+   * Groups entries by ingredientId. For each ingredient with multiple unit entries,
+   * tries to convert all amounts into the dominant unit (highest total amount in
+   * base SI/common unit). Triggers progressive LLM fill for any unknown unit pairs.
+   * Null-unit (countable) entries are kept as-is without conversion.
+   */
+  private async mergeConvertibleUnits(
+    aggregated: Map<
+      string,
+      { ingredientId: string; totalAmount: number; unitId: string | null }
+    >,
+  ): Promise<
+    Map<
+      string,
+      { ingredientId: string; totalAmount: number; unitId: string | null }
+    >
+  > {
+    // Group by ingredientId
+    const byIngredient = new Map<
+      string,
+      Array<{
+        key: string;
+        ingredientId: string;
+        totalAmount: number;
+        unitId: string | null;
+        unit: Unit | null;
+      }>
+    >();
+
+    for (const [key, entry] of aggregated) {
+      const unit =
+        entry.unitId != null
+          ? await this.prisma.unit.findUnique({ where: { id: entry.unitId } })
+          : null;
+      const group = byIngredient.get(entry.ingredientId) ?? [];
+      group.push({ key, ...entry, unit });
+      byIngredient.set(entry.ingredientId, group);
+    }
+
+    const result = new Map<
+      string,
+      { ingredientId: string; totalAmount: number; unitId: string | null }
+    >();
+
+    for (const entries of byIngredient.values()) {
+      // Separate null-unit (countable) entries — they can only be summed, not converted
+      const nullUnitEntries = entries.filter((e) => e.unitId === null);
+      const realUnitEntries = entries.filter(
+        (e): e is typeof e & { unitId: string; unit: Unit } =>
+          e.unitId !== null && e.unit !== null,
+      );
+
+      // Sum all null-unit entries for this ingredient into one row
+      if (nullUnitEntries.length > 0) {
+        const total = nullUnitEntries.reduce(
+          (sum, e) => sum + e.totalAmount,
+          0,
+        );
+        result.set(`${nullUnitEntries[0].ingredientId}:null`, {
+          ingredientId: nullUnitEntries[0].ingredientId,
+          totalAmount: total,
+          unitId: null,
+        });
+      }
+
+      if (realUnitEntries.length === 0) continue;
+
+      if (realUnitEntries.length === 1) {
+        const e = realUnitEntries[0];
+        result.set(e.key, {
+          ingredientId: e.ingredientId,
+          totalAmount: e.totalAmount,
+          unitId: e.unitId,
+        });
+        continue;
+      }
+
+      // Ensure we have conversion data for all pairs (progressive fill)
+      for (let i = 0; i < realUnitEntries.length; i++) {
+        for (let j = i + 1; j < realUnitEntries.length; j++) {
+          await this.conversion.ensureConversion(
+            realUnitEntries[i].unit,
+            realUnitEntries[j].unit,
+          );
+        }
+      }
+
+      // Pick dominant unit: the entry with highest total amount after converting to
+      // the first unit as a common base (to compare apples-to-apples)
+      const baseEntry = realUnitEntries[0];
+      const converted: Array<{
+        entry: (typeof realUnitEntries)[0];
+        inBase: number;
+      }> = [];
+
+      for (const entry of realUnitEntries) {
+        if (entry.unitId === baseEntry.unitId) {
+          converted.push({ entry, inBase: entry.totalAmount });
+          continue;
+        }
+        const inBase = await this.conversion.convert(
+          entry.totalAmount,
+          entry.unitId,
+          baseEntry.unitId,
+        );
+        converted.push({ entry, inBase: inBase ?? entry.totalAmount });
+      }
+
+      // Choose dominant unit (highest amount in base)
+      const dominant = converted.reduce((a, b) =>
+        a.inBase >= b.inBase ? a : b,
+      ).entry;
+
+      // Merge all convertible entries into dominant unit; keep incompatible ones separate
+      let mergedAmount = 0;
+      const unmerged: typeof realUnitEntries = [];
+
+      for (const { entry } of converted) {
+        const convertedAmount = await this.conversion.convert(
+          entry.totalAmount,
+          entry.unitId,
+          dominant.unitId,
+        );
+        if (convertedAmount !== null) {
+          mergedAmount += convertedAmount;
+        } else {
+          unmerged.push(entry);
+        }
+      }
+
+      // Save merged entry under dominant unit
+      result.set(`${dominant.ingredientId}:${dominant.unitId}`, {
+        ingredientId: dominant.ingredientId,
+        totalAmount: mergedAmount,
+        unitId: dominant.unitId,
+      });
+
+      // Keep incompatible entries as-is
+      for (const entry of unmerged) {
+        result.set(entry.key, {
+          ingredientId: entry.ingredientId,
+          totalAmount: entry.totalAmount,
+          unitId: entry.unitId,
+        });
+      }
+    }
+
+    return result;
   }
 
   async getList(planId: string, userId: string) {
