@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, usersApi, setAccessToken, setOnSessionExpired, type User } from '@/lib/api';
 
@@ -11,6 +11,7 @@ interface AuthContextValue {
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  loginWithToken: (accessToken: string) => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -19,6 +20,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  // Set to true when loginWithToken is called so loadUser doesn't overwrite.
+  const externalAuth = useRef(false);
 
   useEffect(() => {
     setOnSessionExpired(() => {
@@ -32,14 +35,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadUser = useCallback(async () => {
     try {
       const { accessToken } = await authApi.refresh();
+      if (externalAuth.current) return; // OAuth callback already handled auth
       setAccessToken(accessToken);
       const me = await usersApi.me();
+      if (externalAuth.current) return;
       setUser(me);
     } catch {
-      setUser(null);
-      setAccessToken(null);
+      if (!externalAuth.current) {
+        setUser(null);
+        setAccessToken(null);
+      }
     } finally {
-      setLoading(false);
+      if (!externalAuth.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -75,8 +84,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
   };
 
+  const loginWithToken = async (token: string): Promise<User> => {
+    externalAuth.current = true;
+    setAccessToken(token);
+    const me = await usersApi.me();
+    setUser(me);
+    setLoading(false);
+    return me;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, loginWithToken }}>
       {children}
     </AuthContext.Provider>
   );

@@ -5,6 +5,8 @@ import {
   IsString,
   IsBoolean,
   IsOptional,
+  IsEmail,
+  MinLength,
   Min,
   Max,
 } from 'class-validator';
@@ -39,4 +41,23 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsBoolean()
   onboardingDone?: boolean;
+}
+
+export class UpdateProfileDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+}
+
+export class ChangePasswordDto {
+  @IsString()
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(8)
+  newPassword: string;
 }

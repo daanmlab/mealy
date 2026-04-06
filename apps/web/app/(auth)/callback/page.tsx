@@ -2,14 +2,13 @@
 
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { setAccessToken, usersApi } from '@/lib/api';
 import { useAuth } from '@/contexts/auth';
 import { Suspense } from 'react';
 
 function CallbackHandler() {
   const router = useRouter();
   const params = useSearchParams();
-  const { refreshUser } = useAuth();
+  const { loginWithToken } = useAuth();
 
   useEffect(() => {
     const token = params.get('token');
@@ -17,15 +16,12 @@ function CallbackHandler() {
       router.replace('/login');
       return;
     }
-    setAccessToken(token);
-    usersApi
-      .me()
-      .then(async (user) => {
-        await refreshUser();
+    loginWithToken(token)
+      .then((user) => {
         router.replace(user.onboardingDone ? '/plan' : '/onboarding');
       })
       .catch(() => router.replace('/login'));
-  }, [params, router, refreshUser]);
+  }, [params, router, loginWithToken]);
 
   return (
     <div className="flex items-center justify-center min-h-screen">

@@ -193,8 +193,13 @@ export const authApi = {
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const usersApi = {
   me: () => api.get<User>('/users/me'),
+  updateProfile: (data: { name?: string; email?: string }) =>
+    api.patch<User>('/users/me/profile', data),
   updatePreferences: (data: Partial<UpdatePreferences>) =>
     api.patch<User>('/users/me/preferences', data),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.patch<void>('/users/me/password', data),
+  deleteAccount: () => api.delete<void>('/users/me'),
 };
 
 // ─── Recipes ──────────────────────────────────────────────────────────────────

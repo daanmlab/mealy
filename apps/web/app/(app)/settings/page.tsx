@@ -5,38 +5,44 @@ import { useAuth } from '@/contexts/auth';
 import { usersApi, type FoodGoal, type CookTimePreference } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { useWeekStartDay } from '@/hooks/useWeekStartDay';
-
-const GOALS: { value: FoodGoal; label: string }[] = [
-  { value: 'healthy', label: 'Healthy' },
-  { value: 'easy', label: 'Quick & easy' },
-  { value: 'cheap', label: 'Budget' },
-  { value: 'high_protein', label: 'High-protein' },
-];
-const COOK_TIMES: { value: CookTimePreference; label: string }[] = [
-  { value: 'under20', label: '< 20 min' },
-  { value: 'under40', label: '< 40 min' },
-  { value: 'any', label: 'Any' },
-];
-const DISLIKES_OPTIONS = ['pork', 'shellfish', 'gluten', 'dairy', 'nuts', 'eggs', 'fish'];
+import { DISLIKES_OPTIONS, GOALS, COOK_TIMES } from '@/lib/constants';
 
 export default function SettingsPage() {
   const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
   const { weekStartsOn, setWeekStartsOn } = useWeekStartDay();
+
+  // ── Preferences ────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
   const [peopleCount, setPeopleCount] = useState(user?.peopleCount ?? 2);
   const [mealsPerWeek, setMealsPerWeek] = useState(user?.mealsPerWeek ?? 5);
   const [cookTime, setCookTime] = useState<CookTimePreference>(user?.cookTime ?? 'under40');
   const [goal, setGoal] = useState<FoodGoal>(user?.goal ?? 'healthy');
   const [dislikes, setDislikes] = useState<string[]>(user?.dislikes ?? []);
 
+  // ── Profile ─────────────────────────────────────────────────────────────────
+  const [name, setName] = useState(user?.name ?? '');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
+  // ── Change password ─────────────────────────────────────────────────────────
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+
+  // ── Delete account ──────────────────────────────────────────────────────────
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   function toggleDislike(item: string) {
     setDislikes((prev) => (prev.includes(item) ? prev.filter((d) => d !== item) : [...prev, item]));
   }
 
-  async function handleSave() {
+  async function handleSavePreferences() {
     setSaving(true);
     try {
       await usersApi.updatePreferences({ peopleCount, mealsPerWeek, cookTime, goal, dislikes });
@@ -48,25 +54,84 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSaveProfile() {
+    setProfileSaving(true);
+    setProfileError('');
+    try {
+      await usersApi.updateProfile({ name: name.trim() || undefined });
+      await refreshUser();
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2000);
+    } catch {
+      setProfileError('Failed to update profile.');
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function handleChangePassword() {
+    setPasswordSaving(true);
+    setPasswordError('');
+    try {
+      await usersApi.changePassword({ currentPassword, newPassword });
+      setCurrentPassword('');
+      setNewPassword('');
+      setPasswordSaved(true);
+      setTimeout(() => setPasswordSaved(false), 2000);
+    } catch {
+      setPasswordError('Current password is incorrect.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      await usersApi.deleteAccount();
+      await logout();
+      router.push('/login');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (!user) return null;
 
   return (
     <div className="space-y-8">
       <h1 className="text-xl font-bold text-gray-900">Settings</h1>
 
-      <section className="bg-white rounded-xl border border-gray-100 p-6 space-y-6">
-        <h2 className="font-semibold text-gray-900">Account</h2>
-        <div className="flex items-center gap-3">
+      {/* ── Profile ──────────────────────────────────────────────────────── */}
+      <section className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
+        <h2 className="font-semibold text-gray-900">Profile</h2>
+        <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold">
             {user.name?.[0]?.toUpperCase() ?? user.email[0]?.toUpperCase() ?? '?'}
           </div>
-          <div>
-            <p className="font-medium text-gray-900">{user.name ?? '—'}</p>
-            <p className="text-sm text-gray-500">{user.email}</p>
-          </div>
+          <p className="text-sm text-gray-500">{user.email}</p>
         </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Display name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            placeholder="Your name"
+          />
+        </div>
+        {profileError && <p className="text-red-600 text-sm">{profileError}</p>}
+        <button
+          onClick={handleSaveProfile}
+          disabled={profileSaving}
+          className="px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+        >
+          {profileSaved ? '✓ Saved' : profileSaving ? 'Saving…' : 'Save profile'}
+        </button>
       </section>
 
+      {/* ── Preferences ──────────────────────────────────────────────────── */}
       <section className="bg-white rounded-xl border border-gray-100 p-6 space-y-5">
         <h2 className="font-semibold text-gray-900">Preferences</h2>
 
@@ -173,23 +238,87 @@ export default function SettingsPage() {
         </div>
 
         <button
-          onClick={handleSave}
+          onClick={handleSavePreferences}
           disabled={saving}
           className="px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
         >
-          {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save changes'}
+          {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save preferences'}
         </button>
       </section>
 
-      <section className="bg-white rounded-xl border border-gray-100 p-6">
-        <h2 className="font-semibold text-gray-900 mb-4">Account actions</h2>
+      {/* ── Change password ───────────────────────────────────────────────── */}
+      {!user.avatarUrl && (
+        <section className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
+          <h2 className="font-semibold text-gray-900">Change password</h2>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">Current password</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">New password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+          {passwordError && <p className="text-red-600 text-sm">{passwordError}</p>}
+          <button
+            onClick={handleChangePassword}
+            disabled={passwordSaving || !currentPassword || newPassword.length < 8}
+            className="px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+          >
+            {passwordSaved ? '✓ Password changed' : passwordSaving ? 'Saving…' : 'Change password'}
+          </button>
+        </section>
+      )}
+
+      {/* ── Account actions ───────────────────────────────────────────────── */}
+      <section className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
+        <h2 className="font-semibold text-gray-900">Account</h2>
         <button
           onClick={() => logout().then(() => router.push('/login'))}
-          className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="text-sm text-gray-500 hover:text-gray-700 transition-colors block"
         >
           Sign out
         </button>
+        {!deleteConfirm ? (
+          <button
+            onClick={() => setDeleteConfirm(true)}
+            className="text-sm text-red-500 hover:text-red-700 transition-colors block"
+          >
+            Delete account…
+          </button>
+        ) : (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+            <p className="text-sm text-red-700 font-medium">
+              This will permanently delete your account and all data. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? 'Deleting…' : 'Yes, delete my account'}
+              </button>
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );
 }
+
