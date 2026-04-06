@@ -56,42 +56,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, [loadUser]);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const { accessToken } = await authApi.login(email, password);
     setAccessToken(accessToken);
     const me = await usersApi.me();
     setUser(me);
-  };
+  }, []);
 
-  const register = async (email: string, password: string, name?: string) => {
+  const register = useCallback(async (email: string, password: string, name?: string) => {
     const { accessToken } = await authApi.register(email, password, name);
     setAccessToken(accessToken);
     const me = await usersApi.me();
     setUser(me);
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authApi.logout();
     } finally {
       setAccessToken(null);
       setUser(null);
     }
-  };
+  }, []);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     const me = await usersApi.me();
     setUser(me);
-  };
+  }, []);
 
-  const loginWithToken = async (token: string): Promise<User> => {
+  const loginWithToken = useCallback(async (token: string): Promise<User> => {
     externalAuth.current = true;
     setAccessToken(token);
     const me = await usersApi.me();
     setUser(me);
     setLoading(false);
     return me;
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, loginWithToken }}>
