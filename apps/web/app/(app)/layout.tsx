@@ -5,17 +5,18 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth';
 
-const NAV = [
-  { href: '/plan', label: 'Plan', icon: '📅' },
-  { href: '/recipes', label: 'Recipes', icon: '🍽' },
-  { href: '/favorites', label: 'Favorites', icon: '♥' },
-  { href: '/settings', label: 'Settings', icon: '⚙' },
-];
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout, loading } = useAuth();
   const router = useRouter();
+
+  const nav = [
+    { href: '/plan', label: 'Plan', icon: '📅' },
+    { href: '/recipes', label: 'Recipes', icon: '🍽' },
+    { href: '/favorites', label: 'Favorites', icon: '♥' },
+    { href: '/settings', label: 'Settings', icon: '⚙' },
+    ...(user?.isAdmin ? [{ href: '/admin', label: 'Admin', icon: '🛠' }] : []),
+  ];
 
   useEffect(() => {
     if (loading) return;
@@ -40,7 +41,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               mealy
             </Link>
             <nav className="flex gap-1">
-              {NAV.map(({ href, label, icon }) => (
+              {nav.map(({ href, label, icon }) => (
                 <Link
                   key={href}
                   href={href}

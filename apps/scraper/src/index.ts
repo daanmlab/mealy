@@ -1,13 +1,13 @@
 import 'dotenv/config';
 import { Command } from 'commander';
-import { fetchPage } from './fetcher';
-import { extractFromJsonLd } from './extractors/jsonld';
-import { extractWithLlm } from './extractors/llm';
-import { normalize } from './normalizer';
-import { verifyAndFix, groupIngredients } from './verifier';
-import { postRecipe, getCatalog, ScrapeResult } from './api-client';
-import { canonicalizeIngredients } from './canonicalizer';
-import { DEFAULT_URLS } from './default-urls';
+import { fetchPage } from './fetcher.js';
+import { extractFromJsonLd } from './extractors/jsonld.js';
+import { extractWithLlm } from './extractors/llm.js';
+import { normalize } from './normalizer.js';
+import { verifyAndFix, groupIngredients } from './verifier.js';
+import { postRecipe, getCatalog, ScrapeResult } from './api-client.js';
+import { canonicalizeIngredients } from './canonicalizer.js';
+import { DEFAULT_URLS } from './default-urls.js';
 
 const program = new Command();
 

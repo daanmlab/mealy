@@ -81,6 +81,7 @@ const USER: User = {
   goal: FoodGoal.healthy,
   dislikes: [],
   onboardingDone: false,
+  isAdmin: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

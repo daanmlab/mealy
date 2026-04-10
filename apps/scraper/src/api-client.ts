@@ -1,4 +1,4 @@
-import { NormalizedRecipe } from './normalizer';
+import { NormalizedRecipe } from './normalizer.js';
 
 export interface ScrapeResult {
   url: string;

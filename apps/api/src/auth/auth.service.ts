@@ -30,7 +30,7 @@ export class AuthService {
       data: { email: dto.email, name: dto.name, password: passwordHash },
     });
 
-    return this.generateAndStoreTokens(user.id, user.email);
+    return this.generateAndStoreTokens(user.id, user.email, user.isAdmin);
   }
 
   async login(dto: LoginDto): Promise<AuthTokens> {
@@ -41,7 +41,7 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    return this.generateAndStoreTokens(user.id, user.email);
+    return this.generateAndStoreTokens(user.id, user.email, user.isAdmin);
   }
 
   async loginOAuth(
@@ -50,7 +50,7 @@ export class AuthService {
     avatarUrl?: string,
   ): Promise<AuthTokens> {
     const user = await this.users.findOrCreate(email, name, avatarUrl);
-    return this.generateAndStoreTokens(user.id, user.email);
+    return this.generateAndStoreTokens(user.id, user.email, user.isAdmin);
   }
 
   async refresh(rawToken: string): Promise<AuthTokens> {
@@ -71,7 +71,7 @@ export class AuthService {
     const user = await this.users.findById(stored.userId);
     if (!user) throw new UnauthorizedException('User not found');
 
-    return this.generateAndStoreTokens(user.id, user.email);
+    return this.generateAndStoreTokens(user.id, user.email, user.isAdmin);
   }
 
   async logout(userId: string): Promise<void> {
@@ -84,8 +84,9 @@ export class AuthService {
   private async generateAndStoreTokens(
     userId: string,
     email: string,
+    isAdmin: boolean,
   ): Promise<AuthTokens> {
-    const payload: JwtPayload = { sub: userId, email };
+    const payload: JwtPayload = { sub: userId, email, isAdmin };
 
     const accessToken = this.jwt.sign(payload, {
       secret: this.config.get<string>('JWT_ACCESS_SECRET'),

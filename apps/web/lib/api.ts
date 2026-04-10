@@ -21,6 +21,8 @@ import type {
   FavoriteRecipe,
   FoodGoal,
   CookTimePreference,
+  AdminRecipeListItem,
+  ImportUrlDto,
 } from '@mealy/types';
 
 // Tag slugs are plain strings in the new schema
@@ -47,6 +49,8 @@ export type {
   FavoriteRecipe,
   FoodGoal,
   CookTimePreference,
+  AdminRecipeListItem,
+  ImportUrlDto,
 };
 
 let accessToken: string | null = null;
@@ -242,4 +246,18 @@ export const favoritesApi = {
   list: () => api.get<FavoriteRecipe[]>('/favorites'),
   add: (recipeId: string) => api.post<FavoriteRecipe>(`/favorites/${recipeId}`),
   remove: (recipeId: string) => api.delete<void>(`/favorites/${recipeId}`),
+};
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+export const adminApi = {
+  listRecipes: (page = 1, limit = 50) =>
+    api.get<{ items: AdminRecipeListItem[]; total: number; page: number; limit: number }>(
+      `/admin/recipes?page=${page}&limit=${limit}`,
+    ),
+  getRecipe: (id: string) => api.get<Recipe>(`/recipes/${id}`),
+  toggleActive: (id: string, isActive: boolean) =>
+    api.patch<AdminRecipeListItem>(`/admin/recipes/${id}`, { isActive }),
+  deleteRecipe: (id: string) => api.delete<void>(`/admin/recipes/${id}`),
+  importFromUrl: (url: string) =>
+    api.post<Recipe>('/admin/recipes/import-url', { url } satisfies ImportUrlDto),
 };

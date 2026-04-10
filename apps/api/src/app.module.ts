@@ -12,6 +12,7 @@ import { PlansModule } from './plans/plans.module';
 import { GroceryModule } from './grocery/grocery.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CatalogModule } from './catalog/catalog.module';
     GroceryModule,
     FavoritesModule,
     CatalogModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

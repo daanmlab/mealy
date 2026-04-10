@@ -23,6 +23,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       where: { id: payload.sub },
     });
     if (!user) return null;
-    return user;
+    return { ...user, isAdmin: payload.isAdmin ?? user.isAdmin };
   }
 }

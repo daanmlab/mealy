@@ -1,4 +1,4 @@
-import { RawRecipe } from './types';
+import { RawRecipe } from './types.js';
 
 export interface NormalizedIngredient {
   name: string;

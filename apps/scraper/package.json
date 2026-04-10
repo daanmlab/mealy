@@ -3,6 +3,8 @@
   "version": "0.0.1",
   "description": "Recipe scraper CLI for Mealy",
   "private": true,
+  "main": "dist/lib.js",
+  "types": "dist/lib.d.ts",
   "scripts": {
     "scrape": "ts-node src/index.ts",
     "build": "tsc",

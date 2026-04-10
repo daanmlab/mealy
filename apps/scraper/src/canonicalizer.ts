@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { NormalizedIngredient } from './normalizer';
+import { NormalizedIngredient } from './normalizer.js';
 
 const MappingSchema = z.object({
   mappings: z.array(

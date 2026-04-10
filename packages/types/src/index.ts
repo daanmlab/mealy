@@ -3,6 +3,7 @@
 export interface JwtPayload {
   sub: string;
   email: string;
+  isAdmin: boolean;
   iat?: number;
   exp?: number;
 }
@@ -60,6 +61,7 @@ export interface User {
   goal: FoodGoal;
   dislikes: string[];
   onboardingDone: boolean;
+  isAdmin: boolean;
 }
 
 export interface UpdatePreferences {
@@ -104,12 +106,27 @@ export interface Recipe {
   description: string;
   cookTimeMinutes: number;
   servings: number;
+  isActive: boolean;
   imageUrl: string | null;
   sourceUrl: string | null;
   steps: RecipeStep[];
   tags: { tag: Tag }[];
   groups: IngredientGroup[];
   ingredients: RecipeIngredient[];
+}
+
+export interface AdminRecipeListItem {
+  id: string;
+  title: string;
+  cookTimeMinutes: number;
+  isActive: boolean;
+  createdAt: string;
+  tags: { tag: Tag }[];
+  _count: { ingredients: number };
+}
+
+export interface ImportUrlDto {
+  url: string;
 }
 
 // ─── Weekly Plan ──────────────────────────────────────────────────────────────

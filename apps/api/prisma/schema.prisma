@@ -123,6 +123,7 @@ model User {
   goal           FoodGoal           @default(healthy)
   dislikes       String[]
   onboardingDone Boolean            @default(false)
+  isAdmin        Boolean            @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -33,6 +33,7 @@ const makeUser = (overrides: Partial<User> = {}): User => ({
   goal: FoodGoal.healthy,
   dislikes: [],
   onboardingDone: true,
+  isAdmin: false,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,

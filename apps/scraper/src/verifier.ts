@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { RawRecipe, RawIngredient } from './types';
+import { RawRecipe, RawIngredient } from './types.js';
 
 const VerifyResultSchema = z.object({
   valid: z.boolean(),

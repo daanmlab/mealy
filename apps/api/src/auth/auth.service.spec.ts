@@ -47,7 +47,11 @@ describe('AuthService', () => {
   describe('register', () => {
     it('creates a user and returns tokens', async () => {
       mockUsers.findByEmail.mockResolvedValue(null);
-      mockPrisma.user.create.mockResolvedValue({ id: 'u1', email: 'a@b.com' });
+      mockPrisma.user.create.mockResolvedValue({
+        id: 'u1',
+        email: 'a@b.com',
+        isAdmin: false,
+      });
       mockPrisma.refreshToken.create.mockResolvedValue({});
 
       const result = await service.register({
@@ -78,6 +82,7 @@ describe('AuthService', () => {
         id: 'u1',
         email: 'a@b.com',
         password: hash,
+        isAdmin: false,
       });
       mockPrisma.refreshToken.create.mockResolvedValue({});
 
@@ -130,7 +135,11 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 60_000),
       });
       mockPrisma.refreshToken.update.mockResolvedValue({});
-      mockUsers.findById.mockResolvedValue({ id: 'u1', email: 'a@b.com' });
+      mockUsers.findById.mockResolvedValue({
+        id: 'u1',
+        email: 'a@b.com',
+        isAdmin: false,
+      });
       mockPrisma.refreshToken.create.mockResolvedValue({});
 
       const result = await service.refresh('raw-token');

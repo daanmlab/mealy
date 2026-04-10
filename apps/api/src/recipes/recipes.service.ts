@@ -102,7 +102,7 @@ export class RecipesService {
     return results.slice(0, limit);
   }
 
-  async create(dto: CreateRecipeDto) {
+  async create(dto: CreateRecipeDto, isActive = true) {
     const UNIT_FALLBACK = 'unit'; // treated as null — means "countable, no real unit"
 
     // ── Pre-transaction: resolve ingredient names + infer missing units via LLM ─
@@ -245,6 +245,7 @@ export class RecipesService {
           imageUrl: dto.imageUrl ?? null,
           sourceUrl: dto.sourceUrl ?? null,
           steps: dto.steps,
+          isActive,
           tags: {
             create: uniqueTagSlugs.map((slug) => ({
               tagId: tagBySlug[slug].id,
