@@ -49,8 +49,9 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/
 
-# Prisma schema and migrations (needed for `prisma migrate deploy` on boot)
+# Prisma schema, migrations, and config (needed for `prisma migrate deploy` on boot)
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/prisma.config.ts ./apps/api/
 
 # Scraper compiled output — runtime dependency used in admin.service.ts
 # The workspace symlink node_modules/@mealy/scraper -> ../../apps/scraper
@@ -58,10 +59,12 @@ COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/scraper/dist ./apps/scraper/dist
 COPY --from=builder /app/apps/scraper/package.json ./apps/scraper/
 
+COPY --from=builder /app/apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
+
+RUN chmod +x apps/api/docker-entrypoint.sh
+
 USER nestjs
 
 EXPOSE 3001
 
-# Path matches nest-cli.json entryFile: "apps/api/src/main" compiled to
-# apps/api/dist/apps/api/src/main.js (relative to apps/api outDir ./dist)
-CMD ["node", "apps/api/dist/apps/api/src/main"]
+CMD ["apps/api/docker-entrypoint.sh"]
