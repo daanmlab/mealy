@@ -1,4 +1,7 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// In production the API is proxied through Next.js rewrites at /api/*,
+// so requests are same-origin and cookies work across domains.
+// In local dev, NEXT_PUBLIC_API_URL points to http://localhost:3001.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ? '' : 'http://localhost:3001';
 
 import type {
   User,
@@ -190,7 +193,8 @@ export const authApi = {
     api.post<{ accessToken: string }>('/auth/register', { email, password, name }),
   login: (email: string, password: string) =>
     api.post<{ accessToken: string }>('/auth/login', { email, password }),
-  refresh: () => api.post<{ accessToken: string }>('/auth/refresh', { refreshToken: '' }),
+  refresh: (refreshToken?: string) =>
+    api.post<{ accessToken: string }>('/auth/refresh', { refreshToken: refreshToken ?? '' }),
   logout: () => api.post<void>('/auth/logout'),
 };
 

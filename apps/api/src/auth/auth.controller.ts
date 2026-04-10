@@ -84,9 +84,12 @@ export class AuthController {
     @Res() res: Response,
   ): void {
     const tokens = req.user;
-    this.setRefreshCookie(res, tokens.refreshToken);
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-    res.redirect(`${frontendUrl}/callback?token=${tokens.accessToken}`);
+    // Pass the refresh token as `rt` so the frontend can exchange it through
+    // its same-origin proxy, setting the cookie on the correct domain.
+    res.redirect(
+      `${frontendUrl}/callback?token=${tokens.accessToken}&rt=${tokens.refreshToken}`,
+    );
   }
 
   private setRefreshCookie(res: Response, token: string): void {

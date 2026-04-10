@@ -11,7 +11,7 @@ interface AuthContextValue {
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  loginWithToken: (accessToken: string) => Promise<User>;
+  loginWithToken: (accessToken: string, refreshToken?: string) => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -84,9 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
   }, []);
 
-  const loginWithToken = useCallback(async (token: string): Promise<User> => {
+  const loginWithToken = useCallback(async (token: string, refreshToken?: string): Promise<User> => {
     externalAuth.current = true;
-    setAccessToken(token);
+    // Exchange the refresh token through the proxy to set a same-origin cookie,
+    // then use the fresh access token so the in-memory token stays in sync.
+    if (refreshToken) {
+      const { accessToken } = await authApi.refresh(refreshToken);
+      setAccessToken(accessToken);
+    } else {
+      setAccessToken(token);
+    }
     const me = await usersApi.me();
     setUser(me);
     setLoading(false);

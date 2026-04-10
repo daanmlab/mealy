@@ -12,11 +12,12 @@ function CallbackHandler() {
 
   useEffect(() => {
     const token = params.get('token');
+    const rt = params.get('rt');
     if (!token) {
       router.replace('/login');
       return;
     }
-    loginWithToken(token)
+    loginWithToken(token, rt ?? undefined)
       .then((user) => {
         router.replace(user.onboardingDone ? '/plan' : '/onboarding');
       })
