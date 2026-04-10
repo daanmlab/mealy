@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: mealy-api
+    runtime: docker
+    # Build context must be the repo root so the Dockerfile can COPY
+    # workspace packages (apps/scraper, packages/types, etc.)
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    region: frankfurt
+    plan: free
+    healthCheckPath: /api/health
+
+    envVars:
+      # ── Runtime ───────────────────────────────────────────────────────────
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+
+      # ── Database & cache ──────────────────────────────────────────────────
+      # Set these to your Neon and Upstash connection strings in the dashboard
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+
+      # ── Auth (JWT) ────────────────────────────────────────────────────────
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+
+      # ── CORS ──────────────────────────────────────────────────────────────
+      # Set to your Vercel deployment URL, e.g. https://mealy.vercel.app
+      - key: FRONTEND_URL
+        sync: false
+
+      # ── OAuth — Google ────────────────────────────────────────────────────
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Update to your Render service URL after first deploy
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+
+      # ── Scraper ───────────────────────────────────────────────────────────
+      - key: SCRAPER_API_KEY
+        sync: false

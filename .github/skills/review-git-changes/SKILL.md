@@ -24,26 +24,34 @@ Use this skill to inspect local repository changes, evaluate them against coding
 
 1. Inspect the current worktree state with git status.
 2. Identify the narrowest review surface first:
+
 - Prefer only changed files.
 - If there are both staged and unstaged changes, consider both unless the user limits scope.
+
 3. Review the diff file by file.
 4. For each file, evaluate the change against these principles unless the user provides others:
+
 - Fix root causes instead of patching symptoms.
 - Keep changes minimal and consistent with existing patterns.
 - Prefer clear names and straightforward control flow over cleverness.
 - Avoid adding comments that merely narrate obvious code.
 - Preserve comments that explain non-obvious intent, invariants, edge cases, or external constraints.
 - Check whether tests or validation should change alongside behavior changes.
+
 5. Separate findings into:
+
 - Correctness or regression risk
 - Maintainability or readability issues
 - Excessive, redundant, or outdated comments
 - Missing validation, tests, or error handling
+
 6. If the task includes cleanup, edit the changed files directly:
+
 - Remove comments that duplicate the code line-for-line.
 - Compress verbose block comments into a short intent-level note only when needed.
 - Do not remove comments that document business rules, safety constraints, workarounds, or surprising behavior.
 - Do not broaden scope into unrelated refactors.
+
 7. Run the cheapest focused validation available for the touched slice.
 8. Summarize results with findings first, then note validations run and any residual risks.
 

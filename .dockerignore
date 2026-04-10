@@ -1,0 +1,33 @@
+# Ignore everything that should not be sent to the Docker daemon.
+# The build context is the repo root (required for the monorepo Dockerfile).
+
+# Dependencies — reinstalled inside the image
+node_modules
+**/node_modules
+
+# Build outputs — rebuilt inside the image
+dist
+**/dist
+.next
+
+# Environment files — injected at runtime via env vars
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Development / editor noise
+.git
+.gitignore
+.husky
+.turbo
+**/.turbo
+coverage
+**/coverage
+.DS_Store
+
+# Docs and config that don't affect the build
+*.md
+.prettierrc
+.prettierignore
+mealy.code-workspace
