@@ -83,11 +83,25 @@ export class CatalogService {
 
     // 4. Fallback: create new ingredient + seed its own alias
     const canonicalName = llmResult?.canonicalName ?? normalized;
-    const ingredient = await this.prisma.ingredient.upsert({
-      where: { name: canonicalName },
-      create: { name: canonicalName },
-      update: {},
-    });
+    let ingredient: Ingredient;
+    try {
+      ingredient = await this.prisma.ingredient.upsert({
+        where: { name: canonicalName },
+        create: { name: canonicalName },
+        update: {},
+      });
+    } catch (err: unknown) {
+      // Concurrent calls can race on the upsert — on P2002 the winner already created the row.
+      if (err instanceof Error && (err as { code?: string }).code === 'P2002') {
+        const existing = await this.prisma.ingredient.findFirst({
+          where: { name: { equals: canonicalName, mode: 'insensitive' } },
+        });
+        if (!existing) throw err;
+        ingredient = existing;
+      } else {
+        throw err;
+      }
+    }
     await this.prisma.ingredientAlias
       .createMany({
         data: [

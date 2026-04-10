@@ -12,11 +12,15 @@ const mockPrisma = {
     deleteMany: jest.fn(),
     create: jest.fn(),
     findUnique: jest.fn(),
+    findUniqueOrThrow: jest.fn(),
   },
   recipe: { findMany: jest.fn() },
   groceryListItem: {
     findUnique: jest.fn(),
     update: jest.fn(),
+  },
+  groceryListItemSource: {
+    createMany: jest.fn(),
   },
 };
 
@@ -93,8 +97,12 @@ describe('GroceryService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    // Default: no conversions exist (returns null → keep separate)
     mockConversion.convert.mockResolvedValue(null);
+    mockPrisma.groceryListItemSource.createMany.mockResolvedValue({ count: 0 });
+    mockPrisma.groceryList.findUniqueOrThrow.mockResolvedValue({
+      id: 'gl1',
+      items: [],
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -143,9 +151,16 @@ describe('GroceryService', () => {
 
       const createdList = { id: 'gl1', items: [] };
       mockPrisma.groceryList.create.mockResolvedValue(createdList);
+      const enrichedList = {
+        id: 'gl1',
+        items: [],
+        weeklyPlanId: 'p1',
+        generatedAt: new Date(),
+      };
+      mockPrisma.groceryList.findUniqueOrThrow.mockResolvedValue(enrichedList);
 
       const result = await service.generateList('p1', user);
-      expect(result).toBe(createdList);
+      expect(result).toBe(enrichedList);
 
       const createCall = (
         mockPrisma.groceryList.create.mock.calls as [CreateArg][]

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { groceryApi, type GroceryList, type GroceryItem, type GroceryItemSource } from '@/lib/api';
@@ -27,6 +27,52 @@ const DAY_LABELS: Record<string, string> = {
   saturday: 'Sat',
   sunday: 'Sun',
 };
+
+function formatAmount(amount: number): string {
+  return amount % 1 === 0 ? String(amount) : amount.toFixed(1);
+}
+
+function formatMeasurement(item: GroceryItem): string {
+  return item.unit ? `${formatAmount(item.totalAmount)} ${item.unit.symbol}` : formatAmount(item.totalAmount);
+}
+
+function mergeSources(subItems: GroceryItem[]): GroceryItemSource[] {
+  const seen = new Set<string>();
+  const result: GroceryItemSource[] = [];
+  for (const item of subItems) {
+    for (const src of item.sources ?? []) {
+      const key = `${src.recipeId}:${src.day}:${src.unit?.id ?? 'null'}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(src);
+      }
+    }
+  }
+  return result;
+}
+
+type IngredientGroup = { items: GroceryItem[] };
+
+function groupItems(items: GroceryItem[]): Record<string, IngredientGroup[]> {
+  const byCat = items.reduce<Record<string, GroceryItem[]>>((acc, item) => {
+    const cat = item.ingredient.category?.slug ?? 'other';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(item);
+    return acc;
+  }, {});
+
+  return Object.fromEntries(
+    Object.entries(byCat).map(([cat, catItems]) => {
+      const byIngredient = new Map<string, IngredientGroup>();
+      for (const item of catItems) {
+        const ing = item.ingredient.id;
+        if (!byIngredient.has(ing)) byIngredient.set(ing, { items: [] });
+        byIngredient.get(ing)!.items.push(item);
+      }
+      return [cat, [...byIngredient.values()]];
+    }),
+  );
+}
 
 export default function GroceryListPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: planId } = use(params);
@@ -67,9 +113,19 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
     if (!list) return;
     const updated = await groceryApi.toggle(planId, item.id);
     setList((l) =>
-      l ? { ...l, items: l.items.map((i) => (i.id === item.id ? updated : i)) } : l,
+      l ? { ...l, items: l.items.map((i) => (i.id === item.id ? { ...i, isChecked: updated.isChecked } : i)) } : l,
     );
   }
+
+  const groupedByIngredient = useMemo(
+    () => (list ? groupItems(list.items) : {}),
+    [list],
+  );
+
+  const { checkedCount, total } = useMemo(() => {
+    const items = list?.items ?? [];
+    return { checkedCount: items.filter((i) => i.isChecked).length, total: items.length };
+  }, [list]);
 
   if (loading) {
     return (
@@ -96,55 +152,6 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
         </button>
       </div>
     );
-  }
-
-  // Group items by category slug, then by ingredientId within each category
-  const grouped = list.items.reduce<Record<string, GroceryItem[]>>((acc, item) => {
-    const cat = item.ingredient.category?.slug ?? 'other';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(item);
-    return acc;
-  }, {});
-
-  // Within each category group items with the same ingredientId into one visual row
-  type IngredientGroup = { items: GroceryItem[] };
-  const groupedByIngredient = Object.fromEntries(
-    Object.entries(grouped).map(([cat, items]) => {
-      const byIngredient = new Map<string, IngredientGroup>();
-      for (const item of items) {
-        const ing = item.ingredient.id;
-        if (!byIngredient.has(ing)) byIngredient.set(ing, { items: [] });
-        byIngredient.get(ing)!.items.push(item);
-      }
-      return [cat, [...byIngredient.values()]];
-    }),
-  );
-
-  const checkedCount = list.items.filter((i) => i.isChecked).length;
-  const total = list.items.length;
-
-  function formatAmount(amount: number): string {
-    return amount % 1 === 0 ? String(amount) : amount.toFixed(1);
-  }
-
-  function formatMeasurement(item: GroceryItem): string {
-    return item.unit ? `${formatAmount(item.totalAmount)} ${item.unit.symbol}` : formatAmount(item.totalAmount);
-  }
-
-  /** De-duplicate sources across all sub-items for the same ingredient group */
-  function mergeSources(subItems: GroceryItem[]): GroceryItemSource[] {
-    const seen = new Set<string>();
-    const result: GroceryItemSource[] = [];
-    for (const item of subItems) {
-      for (const src of item.sources ?? []) {
-        const key = `${src.recipeId}:${src.day}:${src.unit?.id ?? 'null'}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          result.push(src);
-        }
-      }
-    }
-    return result;
   }
 
   return (
@@ -209,7 +216,7 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
                           const targets = allChecked
                             ? subItems
                             : subItems.filter((i) => !i.isChecked);
-                          for (const item of targets) await handleToggle(item);
+                          await Promise.all(targets.map((item) => handleToggle(item)));
                         }}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
                           allChecked ? 'bg-gray-50' : 'bg-white border border-gray-100'

@@ -5,6 +5,25 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PlansService } from '../plans/plans.service';
 import { ConversionService } from '../catalog/conversion.service';
 
+const ITEM_INCLUDE = {
+  ingredient: { include: { category: true } },
+  unit: true,
+  sources: {
+    include: {
+      recipe: { select: { id: true, title: true } },
+      unit: true,
+    },
+  },
+} as const;
+
+const ITEMS_INCLUDE = {
+  include: ITEM_INCLUDE,
+  orderBy: [
+    { ingredient: { category: { name: 'asc' as const } } },
+    { ingredient: { name: 'asc' as const } },
+  ],
+};
+
 @Injectable()
 export class GroceryService {
   constructor(
@@ -120,9 +139,7 @@ export class GroceryService {
         weeklyPlanId: planId,
         items: { create: itemsToCreate },
       },
-      include: {
-        items: { include: { ingredient: true, unit: true } },
-      },
+      select: { id: true, items: { select: { id: true, ingredientId: true } } },
     });
 
     // Attach sources to each created item
@@ -141,7 +158,11 @@ export class GroceryService {
       });
     }
 
-    return list;
+    // Re-fetch with full include (category, sources) so the response matches getList
+    return this.prisma.groceryList.findUniqueOrThrow({
+      where: { id: list.id },
+      include: { items: ITEMS_INCLUDE },
+    });
   }
 
   /**
@@ -296,29 +317,11 @@ export class GroceryService {
   }
 
   async getList(planId: string, userId: string) {
-    // Verify user owns the plan
     await this.plans.getPlanById(planId, userId);
 
     const list = await this.prisma.groceryList.findUnique({
       where: { weeklyPlanId: planId },
-      include: {
-        items: {
-          include: {
-            ingredient: { include: { category: true } },
-            unit: true,
-            sources: {
-              include: {
-                recipe: { select: { id: true, title: true } },
-                unit: true,
-              },
-            },
-          },
-          orderBy: [
-            { ingredient: { category: { name: 'asc' } } },
-            { ingredient: { name: 'asc' } },
-          ],
-        },
-      },
+      include: { items: ITEMS_INCLUDE },
     });
 
     if (!list)
@@ -337,7 +340,7 @@ export class GroceryService {
     return this.prisma.groceryListItem.update({
       where: { id: itemId },
       data: { isChecked: !item.isChecked },
-      include: { ingredient: true, unit: true },
+      include: ITEM_INCLUDE,
     });
   }
 }
