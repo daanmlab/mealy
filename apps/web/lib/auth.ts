@@ -110,6 +110,7 @@ export const {
       if (user) {
         token.id = user.id;
         token.sub = user.id;
+        token.email = user.email;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
       }
       return token;
