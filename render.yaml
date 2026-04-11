@@ -20,19 +20,24 @@ services:
       # ── Database & cache ──────────────────────────────────────────────────
       # Set these to your Neon and Upstash connection strings in the dashboard
       - key: DATABASE_URL
+        sync: false
       - key: REDIS_URL
+        sync: false
 
       # ── Auth ─────────────────────────────────────────────────────────────
       # Must match AUTH_SECRET set in your Vercel/web deployment
       - key: AUTH_SECRET
+        sync: false
 
       # ── Optional: protect internal OAuth upsert endpoint ──────────────────
       - key: INTERNAL_API_KEY
+        sync: false
 
       # ── CORS ──────────────────────────────────────────────────────────────
       # Set to your Vercel deployment URL, e.g. https://mealy.vercel.app
       - key: FRONTEND_URL
+        sync: false
 
       # ── Scraper ───────────────────────────────────────────────────────────
       - key: SCRAPER_API_KEY
-      - key: OPENAI_API_KEY
+        sync: false
