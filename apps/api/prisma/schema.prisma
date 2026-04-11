@@ -245,7 +245,7 @@ model WeeklyPlanMeal {
   weeklyPlanId String
   weeklyPlan   WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
   recipeId     String
-  recipe       Recipe     @relation(fields: [recipeId], references: [id])
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   day          DayOfWeek
   isLocked     Boolean    @default(false)
 
@@ -289,7 +289,7 @@ model GroceryListItemSource {
   unitId            String?
 
   groceryListItem GroceryListItem @relation(fields: [groceryListItemId], references: [id], onDelete: Cascade)
-  recipe          Recipe          @relation(fields: [recipeId],          references: [id])
+  recipe          Recipe          @relation(fields: [recipeId],          references: [id], onDelete: Cascade)
   unit            Unit?           @relation(fields: [unitId],            references: [id])
 
   @@map("grocery_list_item_sources")
