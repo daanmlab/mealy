@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { adminApi, API_BASE, getAccessToken } from '@/lib/api';
+import { adminApi, API_BASE } from '@/lib/api';
 
 type StepName = 'fetch' | 'extract' | 'verify' | 'group' | 'normalize' | 'canonicalize' | 'save';
 type StepStatus = 'pending' | 'running' | 'done' | 'skipped' | 'error';
@@ -228,13 +228,10 @@ export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
   }, []);
 
   const openJobStream = useCallback(async (jobId: string) => {
-    const token = getAccessToken();
-    if (!token) return;
-
     try {
       const res = await fetch(
         `${API_BASE}/api/admin/recipes/import-url/stream?jobId=${encodeURIComponent(jobId)}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        {},
       );
 
       if (!res.ok || !res.body) {

@@ -3,13 +3,11 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/auth';
 import { usersApi, type FoodGoal, type CookTimePreference } from '@/lib/api';
-import { useRouter } from 'next/navigation';
 import { useWeekStartDay } from '@/hooks/useWeekStartDay';
 import { DISLIKES_OPTIONS, GOALS, COOK_TIMES } from '@/lib/constants';
 
 export default function SettingsPage() {
   const { user, logout, refreshUser } = useAuth();
-  const router = useRouter();
   const { weekStartsOn, setWeekStartsOn } = useWeekStartDay();
 
   // ── Preferences ────────────────────────────────────────────────────────────
@@ -90,7 +88,6 @@ export default function SettingsPage() {
     try {
       await usersApi.deleteAccount();
       await logout();
-      router.push('/login');
     } finally {
       setDeleting(false);
     }
@@ -283,7 +280,9 @@ export default function SettingsPage() {
       <section className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
         <h2 className="font-semibold text-gray-900">Account</h2>
         <button
-          onClick={() => logout().then(() => router.push('/login'))}
+          onClick={() => {
+            void logout();
+          }}
           className="text-sm text-gray-500 hover:text-gray-700 transition-colors block"
         >
           Sign out
@@ -321,4 +320,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

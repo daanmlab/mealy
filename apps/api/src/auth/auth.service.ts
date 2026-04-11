@@ -3,25 +3,27 @@ import {
   UnauthorizedException,
   ConflictException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
-import { RegisterDto, LoginDto } from './auth.dto';
-import { AuthTokens, JwtPayload } from '@mealy/types';
+import { RegisterDto } from './auth.dto';
+
+export interface UserInfo {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+  isAdmin: boolean;
+}
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
-    private readonly jwt: JwtService,
-    private readonly config: ConfigService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<AuthTokens> {
+  async register(dto: RegisterDto): Promise<UserInfo> {
     const existing = await this.users.findByEmail(dto.email);
     if (existing) throw new ConflictException('Email already in use');
 
@@ -30,82 +32,66 @@ export class AuthService {
       data: { email: dto.email, name: dto.name, password: passwordHash },
     });
 
-    return this.generateAndStoreTokens(user.id, user.email, user.isAdmin);
+    return this.toUserInfo(user);
   }
 
-  async login(dto: LoginDto): Promise<AuthTokens> {
-    const user = await this.users.findByEmail(dto.email);
+  async validateCredentials(
+    email: string,
+    password: string,
+  ): Promise<UserInfo> {
+    const user = await this.users.findByEmail(email);
     if (!user || !user.password)
       throw new UnauthorizedException('Invalid credentials');
 
-    const valid = await bcrypt.compare(dto.password, user.password);
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    return this.generateAndStoreTokens(user.id, user.email, user.isAdmin);
+    return this.toUserInfo(user);
   }
 
-  async loginOAuth(
+  async upsertOAuthUser(
     email: string,
     name?: string,
     avatarUrl?: string,
-  ): Promise<AuthTokens> {
-    const user = await this.users.findOrCreate(email, name, avatarUrl);
-    return this.generateAndStoreTokens(user.id, user.email, user.isAdmin);
-  }
-
-  async refresh(rawToken: string): Promise<AuthTokens> {
-    const tokenHash = this.hashToken(rawToken);
-    const stored = await this.prisma.refreshToken.findUnique({
-      where: { tokenHash },
-    });
-
-    if (!stored || stored.revoked || stored.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+  ): Promise<UserInfo> {
+    const existing = await this.users.findByEmail(email);
+    if (existing) {
+      // Update profile fields that may have changed from the OAuth provider.
+      const needsUpdate =
+        (name && name !== existing.name) ||
+        (avatarUrl && avatarUrl !== existing.avatarUrl);
+      if (needsUpdate) {
+        const updated = await this.prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            name: name ?? existing.name,
+            avatarUrl: avatarUrl ?? existing.avatarUrl,
+          },
+        });
+        return this.toUserInfo(updated);
+      }
+      return this.toUserInfo(existing);
     }
 
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revoked: true },
+    const user = await this.prisma.user.create({
+      data: { email, name, avatarUrl },
     });
-
-    const user = await this.users.findById(stored.userId);
-    if (!user) throw new UnauthorizedException('User not found');
-
-    return this.generateAndStoreTokens(user.id, user.email, user.isAdmin);
+    return this.toUserInfo(user);
   }
 
-  async logout(userId: string): Promise<void> {
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revoked: false },
-      data: { revoked: true },
-    });
-  }
-
-  private async generateAndStoreTokens(
-    userId: string,
-    email: string,
-    isAdmin: boolean,
-  ): Promise<AuthTokens> {
-    const payload: JwtPayload = { sub: userId, email, isAdmin };
-
-    const accessToken = this.jwt.sign(payload, {
-      secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-      expiresIn: (this.config.get<string>('JWT_ACCESS_EXPIRES_IN') ??
-        '15m') as never,
-    });
-
-    const refreshToken = crypto.randomBytes(64).toString('hex');
-    const tokenHash = this.hashToken(refreshToken);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    await this.prisma.refreshToken.create({
-      data: { userId, tokenHash, expiresAt },
-    });
-
-    return { accessToken, refreshToken };
-  }
-
-  private hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex');
+  private toUserInfo(user: {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+    isAdmin: boolean;
+  }): UserInfo {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      isAdmin: user.isAdmin,
+    };
   }
 }

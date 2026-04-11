@@ -38,7 +38,7 @@ mealy/
 │   │   ├── app/      # Route groups: (auth)/ and (app)/
 │   │   ├── components/
 │   │   ├── contexts/ # AuthProvider, useAuth
-│   │   └── lib/      # Typed API client with token-refresh logic
+│   │   └── lib/      # Typed API client + NextAuth configuration
 │   └── scraper/      # CLI tool for importing recipes from URLs
 ├── packages/
 │   ├── types/        # Shared TypeScript types (API ↔ web contract)
@@ -109,18 +109,14 @@ npm run db:studio     # Open Prisma Studio
 DATABASE_URL="postgresql://mealy:mealy@localhost:5432/mealy"
 REDIS_URL="redis://localhost:6379"
 
-JWT_ACCESS_SECRET="change-me"
-JWT_REFRESH_SECRET="change-me"
-JWT_ACCESS_EXPIRES_IN="15m"
-JWT_REFRESH_EXPIRES_IN="7d"
+# Shared secret with NextAuth in apps/web/.env.local
+AUTH_SECRET="change-me-auth-secret-min-32-chars"
+
+# Optional: protect the internal OAuth upsert endpoint
+INTERNAL_API_KEY=""
 
 PORT=3001
 FRONTEND_URL="http://localhost:3000"
-
-# Google OAuth (optional for local dev)
-GOOGLE_CLIENT_ID=""
-GOOGLE_CLIENT_SECRET=""
-GOOGLE_CALLBACK_URL="http://localhost:3001/api/auth/google/callback"
 
 # Recipe scraper (optional)
 SCRAPER_API_KEY=""
@@ -130,6 +126,17 @@ SCRAPER_API_KEY=""
 
 ```env
 NEXT_PUBLIC_API_URL="http://localhost:3001"
+
+# NextAuth — must match AUTH_SECRET in apps/api/.env
+AUTH_SECRET="change-me-auth-secret-min-32-chars"
+
+# Google OAuth (optional for local dev)
+# Callback URL: http://localhost:3000/api/auth/callback/google
+AUTH_GOOGLE_ID=""
+AUTH_GOOGLE_SECRET=""
+
+# Optional: must match apps/api/.env if you enable the internal endpoint guard
+INTERNAL_API_KEY=""
 ```
 
 ## Deployment
@@ -138,8 +145,11 @@ NEXT_PUBLIC_API_URL="http://localhost:3001"
 
 1. Import the repository into Vercel.
 2. Set the **root directory** to `apps/web`.
-3. Add the environment variable `NEXT_PUBLIC_API_URL` pointing to the deployed API URL.
-4. Vercel auto-detects Next.js and deploys on every push to `main`.
+3. Add `NEXT_PUBLIC_API_URL` pointing to the deployed API URL.
+4. Add `AUTH_SECRET` and keep it identical to the API's `AUTH_SECRET`.
+5. If using Google login, add `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
+6. If protecting the internal OAuth sync endpoint, add `INTERNAL_API_KEY` and keep it identical to the API's value.
+7. Vercel auto-detects Next.js and deploys on every push to `main`.
 
 ### API — Render
 
@@ -185,7 +195,7 @@ Vercel and Render both support auto-deploy on push to `main` — configure this 
 - [ ] Set `FRONTEND_URL` in Render to the Vercel deployment URL
 - [ ] Set `NEXT_PUBLIC_API_URL` in Vercel to the Render service URL
 - [ ] Run `prisma migrate deploy` against the production database
-- [ ] Update **Google OAuth** callback URLs to the production API URL
+- [ ] Update **Google OAuth** callback URLs to the production web URL (`/api/auth/callback/google`)
 - [ ] Verify the CI pipeline passes on `main`
 - [ ] Confirm the Render health check (`/api/health`) returns `{ "status": "ok" }`
-- [ ] Test the end-to-end auth flow (register → login → token refresh)
+- [ ] Test the end-to-end auth flow (register → login → Google login)

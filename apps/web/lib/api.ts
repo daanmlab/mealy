@@ -1,6 +1,7 @@
 // In production the API is proxied through Next.js rewrites at /api/*,
 // so requests are same-origin and cookies work across domains.
 // In local dev, NEXT_PUBLIC_API_URL points to http://localhost:3001.
+// Auth headers are injected by proxy.ts (Next.js middleware) — not here.
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ? '' : 'http://localhost:3001';
 
 import type {
@@ -56,89 +57,19 @@ export type {
   ImportUrlDto,
 };
 
-let accessToken: string | null = null;
-
-// Registered by AuthProvider; called when the refresh token is expired/invalid
-// so the app can clear state and redirect to /login.
+// Called when NestJS returns 401 and there's no way to recover (e.g. session expired).
 let onSessionExpired: (() => void) | null = null;
-
-export function setAccessToken(token: string | null) {
-  accessToken = token;
-}
-
-export function getAccessToken() {
-  return accessToken;
-}
 
 export function setOnSessionExpired(cb: (() => void) | null) {
   onSessionExpired = cb;
 }
 
-// ─── Refresh-token machinery ───────────────────────────────────────────────────
-// Only one refresh request is ever in-flight at a time. Any other request that
-// hits a 401 while a refresh is already running waits for the same promise
-// instead of firing its own /auth/refresh call.
-let isRefreshing = false;
-let refreshSubscribers: Array<(success: boolean) => void> = [];
-
-function subscribeToRefresh(cb: (success: boolean) => void) {
-  refreshSubscribers.push(cb);
-}
-
-function notifyRefreshSubscribers(success: boolean) {
-  refreshSubscribers.forEach((cb) => cb(success));
-  refreshSubscribers = [];
-}
-
-async function tryRefresh(): Promise<boolean> {
-  // If a refresh is already in-flight, wait for it instead of starting another
-  if (isRefreshing) {
-    return new Promise<boolean>((resolve) => {
-      subscribeToRefresh(resolve);
-    });
-  }
-
-  isRefreshing = true;
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: '' }),
-    });
-
-    if (!res.ok) {
-      // Refresh token is expired or invalid — clear everything and signal the app
-      setAccessToken(null);
-      notifyRefreshSubscribers(false);
-      onSessionExpired?.();
-      return false;
-    }
-
-    const data = await res.json();
-    setAccessToken(data.accessToken);
-    notifyRefreshSubscribers(true);
-    return true;
-  } catch {
-    setAccessToken(null);
-    notifyRefreshSubscribers(false);
-    onSessionExpired?.();
-    return false;
-  } finally {
-    isRefreshing = false;
-  }
-}
-
 // ─── Core request ──────────────────────────────────────────────────────────────
-async function request<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init.headers as Record<string, string>),
   };
-
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
 
   const res = await fetch(`${API_BASE}/api${path}`, {
     ...init,
@@ -146,15 +77,8 @@ async function request<T>(path: string, init: RequestInit = {}, retried = false)
     credentials: 'include',
   });
 
-  // Only attempt a silent token refresh once per original request, and never
-  // for the refresh endpoint itself (that would cause infinite recursion).
-  if (res.status === 401 && path !== '/auth/refresh' && !retried) {
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      // Retry the original request with the new access token
-      return request<T>(path, init, true);
-    }
-    // Refresh failed — onSessionExpired has already been called; just surface the error
+  if (res.status === 401) {
+    onSessionExpired?.();
     throw new ApiError(401, 'Unauthorized');
   }
 
@@ -189,13 +113,9 @@ export const api = {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
+  // Used by the register page to create an account before calling signIn().
   register: (email: string, password: string, name?: string) =>
-    api.post<{ accessToken: string }>('/auth/register', { email, password, name }),
-  login: (email: string, password: string) =>
-    api.post<{ accessToken: string }>('/auth/login', { email, password }),
-  refresh: (refreshToken?: string) =>
-    api.post<{ accessToken: string }>('/auth/refresh', { refreshToken: refreshToken ?? '' }),
-  logout: () => api.post<void>('/auth/logout'),
+    api.post<{ id: string; email: string }>('/auth/register', { email, password, name }),
 };
 
 // ─── Users ────────────────────────────────────────────────────────────────────

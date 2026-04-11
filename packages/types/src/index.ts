@@ -8,11 +8,6 @@ export interface JwtPayload {
   exp?: number;
 }
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
-
 // ─── Enums / primitives ───────────────────────────────────────────────────────
 
 export type FoodGoal = 'easy' | 'healthy' | 'cheap' | 'high_protein';

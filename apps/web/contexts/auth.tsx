@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useCallback, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi, usersApi, setAccessToken, setOnSessionExpired, type User } from '@/lib/api';
+import { SessionProvider, useSession, signIn, signOut } from 'next-auth/react';
+import { authApi, usersApi, setOnSessionExpired, type User } from '@/lib/api';
 
 interface AuthContextValue {
   user: User | null;
@@ -11,76 +12,52 @@ interface AuthContextValue {
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  loginWithToken: (accessToken: string, refreshToken?: string) => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function AuthConsumer({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  // Set to true when loginWithToken is called so loadUser doesn't overwrite.
-  const externalAuth = useRef(false);
 
   useEffect(() => {
     setOnSessionExpired(() => {
       setUser(null);
-      setAccessToken(null);
       router.push('/login');
     });
     return () => setOnSessionExpired(null);
   }, [router]);
 
-  const loadUser = useCallback(async () => {
-    if (!document.cookie.includes('has_session=')) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const { accessToken } = await authApi.refresh();
-      if (externalAuth.current) return; // OAuth callback already handled auth
-      setAccessToken(accessToken);
-      const me = await usersApi.me();
-      if (externalAuth.current) return;
-      setUser(me);
-    } catch {
-      if (!externalAuth.current) {
-        setUser(null);
-        setAccessToken(null);
-      }
-    } finally {
-      if (!externalAuth.current) {
-        setLoading(false);
-      }
-    }
-  }, []);
-
+  // Fetch the full user profile whenever the session becomes authenticated.
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    if (status === 'authenticated' && !user) {
+      usersApi.me().then(setUser).catch(() => setUser(null));
+    } else if (status === 'unauthenticated') {
+      setUser(null);
+    }
+  }, [status, user]);
+
+  const loading = status === 'loading' || (status === 'authenticated' && !user);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { accessToken } = await authApi.login(email, password);
-    setAccessToken(accessToken);
+    const result = await signIn('credentials', { email, password, redirect: false });
+    if (!result || result.error) throw new Error(result?.error ?? 'Login failed');
     const me = await usersApi.me();
     setUser(me);
   }, []);
 
   const register = useCallback(async (email: string, password: string, name?: string) => {
-    const { accessToken } = await authApi.register(email, password, name);
-    setAccessToken(accessToken);
+    await authApi.register(email, password, name);
+    const result = await signIn('credentials', { email, password, redirect: false });
+    if (!result || result.error) throw new Error(result?.error ?? 'Sign in after register failed');
     const me = await usersApi.me();
     setUser(me);
   }, []);
 
   const logout = useCallback(async () => {
-    try {
-      await authApi.logout();
-    } finally {
-      setAccessToken(null);
-      setUser(null);
-    }
+    setUser(null);
+    await signOut({ redirectTo: '/login' });
   }, []);
 
   const refreshUser = useCallback(async () => {
@@ -88,26 +65,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
   }, []);
 
-  const loginWithToken = useCallback(async (token: string, refreshToken?: string): Promise<User> => {
-    externalAuth.current = true;
-    // Exchange the refresh token through the proxy to set a same-origin cookie,
-    // then use the fresh access token so the in-memory token stays in sync.
-    if (refreshToken) {
-      const { accessToken } = await authApi.refresh(refreshToken);
-      setAccessToken(accessToken);
-    } else {
-      setAccessToken(token);
-    }
-    const me = await usersApi.me();
-    setUser(me);
-    setLoading(false);
-    return me;
-  }, []);
+  // Keep TypeScript happy — session is used indirectly via status.
+  void session;
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, loginWithToken }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
+  );
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return (
+    <SessionProvider>
+      <AuthConsumer>{children}</AuthConsumer>
+    </SessionProvider>
   );
 }
 

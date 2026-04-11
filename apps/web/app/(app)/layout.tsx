@@ -60,7 +60,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
               <button
-                onClick={() => logout().then(() => router.push('/login'))}
+                onClick={() => {
+                  void logout();
+                }}
                 className="px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-gray-600 transition-colors"
               >
                 Sign out
@@ -104,7 +106,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
               <button
-                onClick={() => { setMobileOpen(false); logout().then(() => router.push('/login')); }}
+                onClick={() => {
+                  setMobileOpen(false);
+                  void logout();
+                }}
                 className="px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-600 transition-colors text-left"
               >
                 Sign out

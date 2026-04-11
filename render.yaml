@@ -7,7 +7,7 @@ services:
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     region: frankfurt
-    plan: free
+    plan: starter
     healthCheckPath: /api/health
 
     envVars:
@@ -15,7 +15,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: "3001"
+        value: '3001'
 
       # ── Database & cache ──────────────────────────────────────────────────
       # Set these to your Neon and Upstash connection strings in the dashboard
@@ -24,28 +24,18 @@ services:
       - key: REDIS_URL
         sync: false
 
-      # ── Auth (JWT) ────────────────────────────────────────────────────────
-      - key: JWT_ACCESS_SECRET
+      # ── Auth ─────────────────────────────────────────────────────────────
+      # Must match AUTH_SECRET set in your Vercel/web deployment
+      - key: AUTH_SECRET
         sync: false
-      - key: JWT_REFRESH_SECRET
+
+      # ── Optional: protect internal OAuth upsert endpoint ──────────────────
+      - key: INTERNAL_API_KEY
         sync: false
-      - key: JWT_ACCESS_EXPIRES_IN
-        value: 15m
-      - key: JWT_REFRESH_EXPIRES_IN
-        value: 7d
 
       # ── CORS ──────────────────────────────────────────────────────────────
       # Set to your Vercel deployment URL, e.g. https://mealy.vercel.app
       - key: FRONTEND_URL
-        sync: false
-
-      # ── OAuth — Google ────────────────────────────────────────────────────
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      # Update to your Render service URL after first deploy
-      - key: GOOGLE_CALLBACK_URL
         sync: false
 
       # ── Scraper ───────────────────────────────────────────────────────────

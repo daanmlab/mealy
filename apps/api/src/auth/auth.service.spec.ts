@@ -1,6 +1,4 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
@@ -8,22 +6,15 @@ import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const mockPrisma = {
-  user: { create: jest.fn() },
-  refreshToken: {
-    findUnique: jest.fn(),
+  user: {
     create: jest.fn(),
     update: jest.fn(),
-    updateMany: jest.fn(),
   },
 };
 
 const mockUsers = {
   findByEmail: jest.fn(),
-  findById: jest.fn(),
 };
-
-const mockJwt = { sign: jest.fn().mockReturnValue('access-token') };
-const mockConfig = { get: jest.fn().mockReturnValue('secret') };
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -35,8 +26,6 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: UsersService, useValue: mockUsers },
-        { provide: JwtService, useValue: mockJwt },
-        { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
     service = module.get(AuthService);
@@ -45,149 +34,162 @@ describe('AuthService', () => {
   // ─── register ────────────────────────────────────────────────────────────────
 
   describe('register', () => {
-    it('creates a user and returns tokens', async () => {
+    it('creates a user and returns user info', async () => {
       mockUsers.findByEmail.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue({
         id: 'u1',
         email: 'a@b.com',
+        name: 'A',
+        avatarUrl: null,
         isAdmin: false,
       });
-      mockPrisma.refreshToken.create.mockResolvedValue({});
 
       const result = await service.register({
         email: 'a@b.com',
-        password: 'pw',
+        password: 'password123',
         name: 'A',
       });
 
-      expect(mockPrisma.user.create).toHaveBeenCalled();
-      expect(result).toMatchObject({ accessToken: 'access-token' });
-      expect(typeof result.refreshToken).toBe('string');
+      expect(result).toEqual({
+        id: 'u1',
+        email: 'a@b.com',
+        name: 'A',
+        avatarUrl: null,
+        isAdmin: false,
+      });
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          data: expect.objectContaining({ email: 'a@b.com' }),
+        }),
+      );
     });
 
-    it('throws ConflictException if email already exists', async () => {
+    it('throws ConflictException if email is already in use', async () => {
       mockUsers.findByEmail.mockResolvedValue({ id: 'u1', email: 'a@b.com' });
       await expect(
-        service.register({ email: 'a@b.com', password: 'pw' }),
+        service.register({ email: 'a@b.com', password: 'password123' }),
       ).rejects.toThrow(ConflictException);
     });
   });
 
-  // ─── login ───────────────────────────────────────────────────────────────────
+  // ─── validateCredentials ─────────────────────────────────────────────────────
 
-  describe('login', () => {
-    it('returns tokens for valid credentials', async () => {
-      const hash = await bcrypt.hash('correct', 10);
+  describe('validateCredentials', () => {
+    it('returns user info for valid credentials', async () => {
+      const hash = await bcrypt.hash('password123', 12);
       mockUsers.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'a@b.com',
+        name: 'A',
+        avatarUrl: null,
+        isAdmin: false,
         password: hash,
+      });
+
+      const result = await service.validateCredentials(
+        'a@b.com',
+        'password123',
+      );
+
+      expect(result).toEqual({
+        id: 'u1',
+        email: 'a@b.com',
+        name: 'A',
+        avatarUrl: null,
         isAdmin: false,
       });
-      mockPrisma.refreshToken.create.mockResolvedValue({});
-
-      const result = await service.login({
-        email: 'a@b.com',
-        password: 'correct',
-      });
-      expect(result.accessToken).toBe('access-token');
-    });
-
-    it('throws UnauthorizedException for unknown user', async () => {
-      mockUsers.findByEmail.mockResolvedValue(null);
-      await expect(
-        service.login({ email: 'x@y.com', password: 'pw' }),
-      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException for wrong password', async () => {
-      const hash = await bcrypt.hash('correct', 10);
+      const hash = await bcrypt.hash('correct', 12);
       mockUsers.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'a@b.com',
         password: hash,
       });
       await expect(
-        service.login({ email: 'a@b.com', password: 'wrong' }),
+        service.validateCredentials('a@b.com', 'wrong'),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('throws UnauthorizedException for OAuth user (no password)', async () => {
+    it('throws UnauthorizedException if user not found', async () => {
+      mockUsers.findByEmail.mockResolvedValue(null);
+      await expect(
+        service.validateCredentials('noone@b.com', 'pw'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException for OAuth-only accounts (no password)', async () => {
       mockUsers.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'a@b.com',
         password: null,
       });
       await expect(
-        service.login({ email: 'a@b.com', password: 'any' }),
+        service.validateCredentials('a@b.com', 'pw'),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
 
-  // ─── refresh ─────────────────────────────────────────────────────────────────
+  // ─── upsertOAuthUser ─────────────────────────────────────────────────────────
 
-  describe('refresh', () => {
-    it('returns new tokens for a valid refresh token', async () => {
-      mockPrisma.refreshToken.findUnique.mockResolvedValue({
-        id: 'rt1',
-        userId: 'u1',
-        revoked: false,
-        expiresAt: new Date(Date.now() + 60_000),
-      });
-      mockPrisma.refreshToken.update.mockResolvedValue({});
-      mockUsers.findById.mockResolvedValue({
-        id: 'u1',
-        email: 'a@b.com',
+  describe('upsertOAuthUser', () => {
+    it('creates a new user if none exists', async () => {
+      mockUsers.findByEmail.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 'u2',
+        email: 'g@google.com',
+        name: 'Google User',
+        avatarUrl: 'https://example.com/avatar.png',
         isAdmin: false,
       });
-      mockPrisma.refreshToken.create.mockResolvedValue({});
 
-      const result = await service.refresh('raw-token');
-      expect(result.accessToken).toBe('access-token');
-    });
-
-    it('throws UnauthorizedException for a revoked token', async () => {
-      mockPrisma.refreshToken.findUnique.mockResolvedValue({
-        id: 'rt1',
-        userId: 'u1',
-        revoked: true,
-        expiresAt: new Date(Date.now() + 60_000),
-      });
-      await expect(service.refresh('raw-token')).rejects.toThrow(
-        UnauthorizedException,
+      const result = await service.upsertOAuthUser(
+        'g@google.com',
+        'Google User',
+        'https://example.com/avatar.png',
       );
+
+      expect(result.id).toBe('u2');
+      expect(mockPrisma.user.create).toHaveBeenCalled();
     });
 
-    it('throws UnauthorizedException for an expired token', async () => {
-      mockPrisma.refreshToken.findUnique.mockResolvedValue({
-        id: 'rt1',
-        userId: 'u1',
-        revoked: false,
-        expiresAt: new Date(Date.now() - 1000),
+    it('returns existing user without update if data matches', async () => {
+      mockUsers.findByEmail.mockResolvedValue({
+        id: 'u1',
+        email: 'g@google.com',
+        name: 'Same Name',
+        avatarUrl: null,
+        isAdmin: false,
       });
-      await expect(service.refresh('raw-token')).rejects.toThrow(
-        UnauthorizedException,
-      );
+
+      const result = await service.upsertOAuthUser('g@google.com', 'Same Name');
+
+      expect(result.id).toBe('u1');
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
     });
 
-    it('throws UnauthorizedException for an unknown token', async () => {
-      mockPrisma.refreshToken.findUnique.mockResolvedValue(null);
-      await expect(service.refresh('bad-token')).rejects.toThrow(
-        UnauthorizedException,
-      );
-    });
-  });
-
-  // ─── logout ──────────────────────────────────────────────────────────────────
-
-  describe('logout', () => {
-    it('revokes all refresh tokens for the user', async () => {
-      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 2 });
-      await service.logout('u1');
-      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith({
-        where: { userId: 'u1', revoked: false },
-        data: { revoked: true },
+    it('updates existing user when name changes', async () => {
+      mockUsers.findByEmail.mockResolvedValue({
+        id: 'u1',
+        email: 'g@google.com',
+        name: 'Old Name',
+        avatarUrl: null,
+        isAdmin: false,
       });
+      mockPrisma.user.update.mockResolvedValue({
+        id: 'u1',
+        email: 'g@google.com',
+        name: 'New Name',
+        avatarUrl: null,
+        isAdmin: false,
+      });
+
+      const result = await service.upsertOAuthUser('g@google.com', 'New Name');
+
+      expect(result.name).toBe('New Name');
+      expect(mockPrisma.user.update).toHaveBeenCalled();
     });
   });
 });

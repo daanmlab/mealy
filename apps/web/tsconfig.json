@@ -3,6 +3,8 @@
   "compilerOptions": {
     "plugins": [{ "name": "next" }],
     "strictNullChecks": true,
+    "declaration": false,
+    "declarationMap": false,
     "paths": {
       "@/*": ["./*"]
     }

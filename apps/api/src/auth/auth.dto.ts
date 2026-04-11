@@ -13,7 +13,7 @@ export class RegisterDto {
   name?: string;
 }
 
-export class LoginDto {
+export class ValidateCredentialsDto {
   @IsEmail()
   email: string;
 
@@ -21,8 +21,15 @@ export class LoginDto {
   password: string;
 }
 
-export class RefreshTokenDto {
+export class UpsertOAuthUserDto {
+  @IsEmail()
+  email: string;
+
   @IsString()
   @IsOptional()
-  refreshToken?: string;
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  avatarUrl?: string;
 }
