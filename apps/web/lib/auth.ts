@@ -33,7 +33,8 @@ async function upsertOAuthUser(input: {
   });
 
   if (!res.ok) {
-    throw new Error('OAuth user upsert failed');
+    const body = await res.text();
+    throw new Error(`OAuth user upsert failed (${res.status}): ${body}`);
   }
 
   return res.json() as Promise<DbUser>;
