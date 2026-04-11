@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react';
 import type { AdminRecipeListItem, Recipe } from '@/lib/api';
 import { adminApi } from '@/lib/api';
-import { toggleRecipeActive, deleteRecipe } from '../actions';
 import { RecipeDetailModal } from './RecipeDetailModal';
 
 interface RecipeTableProps {
@@ -27,7 +26,7 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
     setError(null);
     startTransition(async () => {
       try {
-        await toggleRecipeActive(id, !current);
+        await adminApi.toggleActive(id, !current);
         setRecipes((prev) =>
           prev.map((r) => (r.id === id ? { ...r, isActive: !current } : r)),
         );
@@ -47,7 +46,7 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
     setError(null);
     startTransition(async () => {
       try {
-        await deleteRecipe(id);
+        await adminApi.deleteRecipe(id);
         setRecipes((prev) => prev.filter((r) => r.id !== id));
         setSelectedRecipe((prev) => prev?.id === id ? null : prev);
       } catch (e) {

@@ -33,6 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   const loadUser = useCallback(async () => {
+    if (!document.cookie.includes('has_session=')) {
+      setLoading(false);
+      return;
+    }
     try {
       const { accessToken } = await authApi.refresh();
       if (externalAuth.current) return; // OAuth callback already handled auth

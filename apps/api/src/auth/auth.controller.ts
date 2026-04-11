@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
@@ -55,9 +56,18 @@ export class AuthController {
     const rawToken =
       (req.cookies as Record<string, string> | undefined)?.['refresh_token'] ??
       dto.refreshToken;
-    const tokens = await this.authService.refresh(rawToken);
-    this.setRefreshCookie(res, tokens.refreshToken);
-    return { accessToken: tokens.accessToken };
+    if (!rawToken) {
+      this.clearRefreshCookie(res);
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+    try {
+      const tokens = await this.authService.refresh(rawToken);
+      this.setRefreshCookie(res, tokens.refreshToken);
+      return { accessToken: tokens.accessToken };
+    } catch (e) {
+      this.clearRefreshCookie(res);
+      throw e;
+    }
   }
 
   @Post('logout')
@@ -93,11 +103,40 @@ export class AuthController {
   }
 
   private setRefreshCookie(res: Response, token: string): void {
+    const secure = process.env.NODE_ENV === 'production';
+    const sameSite = secure ? 'none' : ('lax' as const);
+    const maxAge = 7 * 24 * 60 * 60 * 1000;
     res.cookie('refresh_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      secure,
+      sameSite,
+      maxAge,
+      path: '/',
+    });
+    // Non-httpOnly indicator so client JS can check for an active session
+    // without exposing the token value.
+    res.cookie('has_session', '1', {
+      httpOnly: false,
+      secure,
+      sameSite,
+      maxAge,
+      path: '/',
+    });
+  }
+
+  private clearRefreshCookie(res: Response): void {
+    const secure = process.env.NODE_ENV === 'production';
+    const sameSite = secure ? 'none' : ('lax' as const);
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure,
+      sameSite,
+      path: '/',
+    });
+    res.clearCookie('has_session', {
+      httpOnly: false,
+      secure,
+      sameSite,
       path: '/',
     });
   }

@@ -23,5 +23,6 @@ export class LoginDto {
 
 export class RefreshTokenDto {
   @IsString()
-  refreshToken: string;
+  @IsOptional()
+  refreshToken?: string;
 }

@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getAccessToken } from '@/lib/api';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+import { adminApi, API_BASE, getAccessToken } from '@/lib/api';
 
 type StepName = 'fetch' | 'extract' | 'verify' | 'group' | 'normalize' | 'canonicalize' | 'save';
 type StepStatus = 'pending' | 'running' | 'done' | 'skipped' | 'error';
@@ -322,26 +320,8 @@ export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
     setSubmitting(true);
     setSubmitError(null);
 
-    const token = getAccessToken();
-    if (!token) {
-      setSubmitError('Not authenticated');
-      setSubmitting(false);
-      return;
-    }
-
     try {
-      const res = await fetch(`${API_BASE}/api/admin/recipes/import-url`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ url }),
-      });
-
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { message?: string };
-        throw new Error(data.message ?? `API error ${res.status}`);
-      }
-
-      const { jobId } = (await res.json()) as { jobId: string };
+      const { jobId } = await adminApi.importFromUrl(url);
       const submittedUrl = url;
 
       setJobs((prev) => [

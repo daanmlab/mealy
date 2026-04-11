@@ -1,7 +1,7 @@
 // In production the API is proxied through Next.js rewrites at /api/*,
 // so requests are same-origin and cookies work across domains.
 // In local dev, NEXT_PUBLIC_API_URL points to http://localhost:3001.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ? '' : 'http://localhost:3001';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ? '' : 'http://localhost:3001';
 
 import type {
   User,
@@ -263,5 +263,5 @@ export const adminApi = {
     api.patch<AdminRecipeListItem>(`/admin/recipes/${id}`, { isActive }),
   deleteRecipe: (id: string) => api.delete<void>(`/admin/recipes/${id}`),
   importFromUrl: (url: string) =>
-    api.post<Recipe>('/admin/recipes/import-url', { url } satisfies ImportUrlDto),
+    api.post<{ jobId: string; url: string }>('/admin/recipes/import-url', { url } satisfies ImportUrlDto),
 };
