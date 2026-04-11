@@ -15,17 +15,23 @@ export async function proxy(request: NextRequest) {
   // For proxied API requests: inject the raw session JWT as a Bearer token so
   // NestJS can validate it with the shared AUTH_SECRET.
   if (pathname.startsWith('/api/')) {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl) return NextResponse.next();
+
     const token = await getToken({
       req: request,
       secret: process.env.AUTH_SECRET,
       raw: true,
     });
+
+    const headers = new Headers(request.headers);
     if (token) {
-      const headers = new Headers(request.headers);
       headers.set('Authorization', `Bearer ${token}`);
-      return NextResponse.next({ request: { headers } });
     }
-    return NextResponse.next();
+
+    // Rewrite to external API with auth header
+    const url = new URL(pathname + request.nextUrl.search, apiUrl);
+    return NextResponse.rewrite(url, { request: { headers } });
   }
 
   // Page route protection — redirect to /login if no session.
