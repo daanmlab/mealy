@@ -9,6 +9,8 @@ services:
     region: frankfurt
     plan: starter
     healthCheckPath: /api/health
+    domains:
+      - mealy-api.daanbalm.com
 
     envVars:
       # ── Runtime ───────────────────────────────────────────────────────────
