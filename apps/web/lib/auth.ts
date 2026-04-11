@@ -1,5 +1,6 @@
 import NextAuth, { type NextAuthResult } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
 import { SignJWT, jwtVerify } from 'jose';
 import type { JWT } from 'next-auth/jwt';
 
@@ -61,29 +62,16 @@ export const {
         return res.json() as Promise<{ id: string; email: string; name: string | null; avatarUrl: string | null; isAdmin: boolean }>;
       },
     }),
-    {
-      id: 'google',
-      name: 'Google',
-      type: 'oauth',
-      issuer: 'https://accounts.google.com',
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID ?? '',
+      clientSecret: process.env.AUTH_GOOGLE_SECRET ?? '',
       authorization: {
-        url: 'https://accounts.google.com/o/oauth2/v2/auth',
         params: { scope: 'openid email profile' },
       },
-      token: 'https://oauth2.googleapis.com/token',
-      userinfo: 'https://openidconnect.googleapis.com/v1/userinfo',
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      profile(profile) {
-        return {
-          id: profile.sub,
-          name: profile.name,
-          email: profile.email,
-          image: profile.picture,
-        };
-      },
-    },
+    }),
   ],
+  secret: process.env.AUTH_SECRET,
+  trustHost: true,
 
   callbacks: {
     async signIn({ user, account }) {
