@@ -103,7 +103,7 @@ export default function SettingsPage() {
       <section className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
         <h2 className="font-semibold text-gray-900">Profile</h2>
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold">
+          <div className="w-10 h-10 rounded-full bg-olive-subtle flex items-center justify-center text-olive font-bold">
             {user.name?.[0]?.toUpperCase() ?? user.email[0]?.toUpperCase() ?? '?'}
           </div>
           <p className="text-sm text-gray-500">{user.email}</p>
@@ -114,7 +114,7 @@ export default function SettingsPage() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-olive"
             placeholder="Your name"
           />
         </div>
@@ -122,7 +122,7 @@ export default function SettingsPage() {
         <button
           onClick={handleSaveProfile}
           disabled={profileSaving}
-          className="px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+          className="px-6 py-2.5 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark disabled:opacity-50 transition-colors"
         >
           {profileSaved ? '✓ Saved' : profileSaving ? 'Saving…' : 'Save profile'}
         </button>
@@ -140,7 +140,7 @@ export default function SettingsPage() {
                 key={n}
                 onClick={() => setPeopleCount(n)}
                 className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                  peopleCount === n ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'
+                  peopleCount === n ? 'border-olive bg-olive-subtle text-olive' : 'border-gray-200 text-gray-600'
                 }`}
               >
                 {n === 4 ? '4+' : n}
@@ -157,7 +157,7 @@ export default function SettingsPage() {
                 key={n}
                 onClick={() => setMealsPerWeek(n)}
                 className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                  mealsPerWeek === n ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'
+                  mealsPerWeek === n ? 'border-olive bg-olive-subtle text-olive' : 'border-gray-200 text-gray-600'
                 }`}
               >
                 {n}
@@ -174,7 +174,7 @@ export default function SettingsPage() {
                 key={value}
                 onClick={() => setGoal(value)}
                 className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                  goal === value ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'
+                  goal === value ? 'border-olive bg-olive-subtle text-olive' : 'border-gray-200 text-gray-600'
                 }`}
               >
                 {label}
@@ -191,7 +191,7 @@ export default function SettingsPage() {
                 key={value}
                 onClick={() => setCookTime(value)}
                 className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                  cookTime === value ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'
+                  cookTime === value ? 'border-olive bg-olive-subtle text-olive' : 'border-gray-200 text-gray-600'
                 }`}
               >
                 {label}
@@ -208,7 +208,7 @@ export default function SettingsPage() {
                 key={day}
                 onClick={() => setWeekStartsOn(day)}
                 className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                  weekStartsOn === day ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'
+                  weekStartsOn === day ? 'border-olive bg-olive-subtle text-olive' : 'border-gray-200 text-gray-600'
                 }`}
               >
                 {day === 1 ? 'Monday' : 'Sunday'}
@@ -237,7 +237,7 @@ export default function SettingsPage() {
         <button
           onClick={handleSavePreferences}
           disabled={saving}
-          className="px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+          className="px-6 py-2.5 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark disabled:opacity-50 transition-colors"
         >
           {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save preferences'}
         </button>
@@ -253,7 +253,7 @@ export default function SettingsPage() {
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-olive"
             />
           </div>
           <div>
@@ -262,14 +262,14 @@ export default function SettingsPage() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-olive"
             />
           </div>
           {passwordError && <p className="text-red-600 text-sm">{passwordError}</p>}
           <button
             onClick={handleChangePassword}
             disabled={passwordSaving || !currentPassword || newPassword.length < 8}
-            className="px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+            className="px-6 py-2.5 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark disabled:opacity-50 transition-colors"
           >
             {passwordSaved ? '✓ Password changed' : passwordSaving ? 'Saving…' : 'Change password'}
           </button>

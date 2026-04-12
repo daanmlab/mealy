@@ -65,8 +65,8 @@ export default function RecipesPage() {
             onClick={() => setActiveTag(value)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               activeTag === value
-                ? 'bg-green-600 text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:border-green-300'
+                ? 'bg-olive text-white'
+                : 'bg-white border border-gray-200 text-gray-600 hover:border-olive-subtle'
             }`}
           >
             {label}
@@ -90,7 +90,7 @@ export default function RecipesPage() {
             <Link
               key={recipe.id}
               href={`/recipes/${recipe.id}`}
-              className="bg-white rounded-xl border border-gray-100 p-4 hover:border-green-200 hover:shadow-sm transition-all block"
+              className="bg-white rounded-xl border border-gray-100 p-4 hover:border-olive-subtle hover:shadow-sm transition-all block"
             >
               <div className="flex justify-between items-start gap-2">
                 <h3 className="font-medium text-gray-900 text-sm leading-snug flex-1">{recipe.title}</h3>
@@ -108,7 +108,7 @@ export default function RecipesPage() {
                 <span className="text-xs text-gray-400">⏱ {recipe.cookTimeMinutes} min</span>
                 <div className="flex gap-1">
                   {recipe.tags.slice(0, 2).map((t) => (
-                    <span key={t.tag.slug} className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-700 rounded capitalize font-medium">
+                    <span key={t.tag.slug} className="text-[10px] px-1.5 py-0.5 bg-olive-subtle text-olive rounded capitalize font-medium">
                       {t.tag.slug.replaceAll('_', '-')}
                     </span>
                   ))}
