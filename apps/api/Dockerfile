@@ -4,6 +4,9 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 
+# Prevent playwright-core from downloading Chromium during npm ci
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/scraper/package.json ./apps/scraper/
@@ -36,8 +39,13 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+# Use the system Chromium installed below — prevents playwright-core from
+# downloading its own ~300 MB bundle at runtime.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-RUN addgroup --system --gid 1001 nodejs && \
+RUN apk add --no-cache chromium && \
+    addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nestjs
 
 # Root workspace manifest (required for npm workspace package resolution)
