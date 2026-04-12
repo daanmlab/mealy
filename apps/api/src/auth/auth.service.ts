@@ -4,6 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './auth.dto';
@@ -16,11 +17,17 @@ export interface UserInfo {
   isAdmin: boolean;
 }
 
+export interface LoginResult {
+  accessToken: string;
+  user: UserInfo;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
+    private readonly jwt: JwtService,
   ) {}
 
   async register(dto: RegisterDto): Promise<UserInfo> {
@@ -47,6 +54,13 @@ export class AuthService {
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
     return this.toUserInfo(user);
+  }
+
+  async login(email: string, password: string): Promise<LoginResult> {
+    const user = await this.validateCredentials(email, password);
+    const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+    const accessToken = await this.jwt.signAsync(payload);
+    return { accessToken, user };
   }
 
   async upsertOAuthUser(

@@ -1,6 +1,11 @@
+import { Transform } from 'class-transformer';
 import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
 
+const normalizeEmail = ({ value }: { value: string }) =>
+  typeof value === 'string' ? value.trim().toLowerCase() : value;
+
 export class RegisterDto {
+  @Transform(normalizeEmail)
   @IsEmail()
   email: string;
 
@@ -14,6 +19,16 @@ export class RegisterDto {
 }
 
 export class ValidateCredentialsDto {
+  @Transform(normalizeEmail)
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  password: string;
+}
+
+export class LoginDto {
+  @Transform(normalizeEmail)
   @IsEmail()
   email: string;
 
@@ -22,6 +37,7 @@ export class ValidateCredentialsDto {
 }
 
 export class UpsertOAuthUserDto {
+  @Transform(normalizeEmail)
   @IsEmail()
   email: string;
 

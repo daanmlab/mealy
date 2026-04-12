@@ -12,13 +12,21 @@ import {
   RegisterDto,
   ValidateCredentialsDto,
   UpsertOAuthUserDto,
+  LoginDto,
 } from './auth.dto';
 import { InternalApiKeyGuard } from './guards/internal-api-key.guard';
-import type { UserInfo } from './auth.service';
+import type { UserInfo, LoginResult } from './auth.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  async login(@Body() dto: LoginDto): Promise<LoginResult> {
+    return this.authService.login(dto.email, dto.password);
+  }
 
   @Post('register')
   @Throttle({ default: { ttl: 60_000, limit: 10 } })

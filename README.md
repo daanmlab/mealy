@@ -21,6 +21,7 @@ Mealy is a full-stack meal-planning application. It lets users discover recipes,
 | Layer            | Technology                           | Hosting         |
 | ---------------- | ------------------------------------ | --------------- |
 | Frontend         | Next.js 16, React 19, Tailwind CSS 4 | Vercel          |
+| Mobile           | React Native (Expo 54), NativeWind   | EAS / App Store |
 | API              | NestJS 11, Prisma 7, Passport JWT    | Render (Docker) |
 | Database         | PostgreSQL 16                        | Neon            |
 | Cache / sessions | Redis 7                              | Upstash         |
@@ -39,6 +40,10 @@ mealy/
 │   │   ├── components/
 │   │   ├── contexts/ # AuthProvider, useAuth
 │   │   └── lib/      # Typed API client + NextAuth configuration
+│   ├── mobile/       # Expo (React Native) app
+│   │   ├── app/      # Expo Router: (auth)/ and (app)/
+│   │   ├── components/
+│   │   └── lib/      # API client + auth utilities
 │   └── scraper/      # CLI tool for importing recipes from URLs
 ├── packages/
 │   ├── types/        # Shared TypeScript types (API ↔ web contract)
@@ -84,6 +89,28 @@ Apps will be available at:
 
 - Frontend: http://localhost:3000
 - API: http://localhost:3001/api
+
+### Mobile app (Expo)
+
+The mobile app runs separately from the Turborepo dev command.
+
+```sh
+# 1. Copy and fill the mobile environment file
+cp apps/mobile/.env.example apps/mobile/.env.local
+# Set EXPO_PUBLIC_API_URL to your API — for local dev use your machine's LAN IP,
+# not localhost (the device/emulator cannot reach localhost on your host machine):
+# EXPO_PUBLIC_API_URL=http://192.168.x.x:3001
+
+# 2. Start the Expo dev server (from the repo root or apps/mobile)
+npm run dev --workspace=apps/mobile
+# or: cd apps/mobile && npx expo start
+```
+
+Then scan the QR code with the **Expo Go** app (iOS / Android), or press:
+- `i` — open in iOS Simulator (requires Xcode)
+- `a` — open in Android Emulator (requires Android Studio)
+
+> **Note:** The API must be running (`npm run dev` or `docker-compose up -d` + `npm run dev --workspace=apps/api`) before launching the mobile app.
 
 ### Useful commands
 
@@ -137,6 +164,13 @@ AUTH_GOOGLE_SECRET=""
 
 # Optional: must match apps/api/.env if you enable the internal endpoint guard
 INTERNAL_API_KEY=""
+```
+
+### `apps/mobile/.env.local`
+
+```env
+# Point to your API — use your machine's LAN IP for device/emulator access
+EXPO_PUBLIC_API_URL="http://192.168.x.x:3001"
 ```
 
 ## Deployment

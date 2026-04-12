@@ -1,4 +1,5 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
@@ -16,6 +17,10 @@ const mockUsers = {
   findByEmail: jest.fn(),
 };
 
+const mockJwt = {
+  signAsync: jest.fn().mockResolvedValue('token'),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -26,6 +31,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: UsersService, useValue: mockUsers },
+        { provide: JwtService, useValue: mockJwt },
       ],
     }).compile();
     service = module.get(AuthService);
