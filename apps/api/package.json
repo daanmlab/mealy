@@ -98,6 +98,10 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "@mealy/scraper": "<rootDir>/../../../apps/scraper/src/lib.ts",
+      "^(\\.\\.?/.*)\\.js$": "$1"
+    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
