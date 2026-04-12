@@ -1,4 +1,6 @@
-# Mealy – Copilot Instructions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project
 
@@ -41,7 +43,7 @@ There is also `./start.sh` which does docker-compose up, starts both dev servers
 | Database | PostgreSQL 16                                 | Neon            |
 | Cache    | Redis 7                                       | Upstash         |
 
-### Auth Flow
+### Auth flow
 
 NextAuth (v5 beta) handles sessions on the web side. JWT tokens are HS256-signed with the shared `AUTH_SECRET` so NestJS can validate them directly.
 
@@ -49,24 +51,24 @@ NextAuth (v5 beta) handles sessions on the web side. JWT tokens are HS256-signed
 - `apps/web/lib/auth.ts` configures NextAuth with Credentials + Google providers. On Google sign-in, it calls the API's `upsert-oauth-user` endpoint (guarded by `INTERNAL_API_KEY`).
 - `apps/web/contexts/auth.tsx` provides `AuthProvider` / `useAuth()` which wraps NextAuth's `SessionProvider` and fetches the full user profile from the API.
 
-### API Module Conventions
+### API module conventions
 
-Each feature module follows: `feature.module.ts`, `feature.controller.ts`, `feature.service.ts`, `feature.dto.ts` (DTOs co-located). No repository layer -- `PrismaService` is injected directly. Guards in `auth/guards/`, strategies in `auth/strategies/`, decorators in `auth/decorators/`.
+Each NestJS feature module follows: `feature.module.ts`, `feature.controller.ts`, `feature.service.ts`, `feature.dto.ts` (DTOs co-located). No repository layer -- `PrismaService` is injected directly. Guards in `auth/guards/`, strategies in `auth/strategies/`, decorators in `auth/decorators/`.
 
 The API uses a global prefix `/api`, global `ValidationPipe` (whitelist + transform), `ThrottlerGuard`, and `helmet`.
 
-### Shared Types
+### Shared types
 
 `packages/types` is the single source of truth for the API-web contract. The API's tsconfig maps `@mealy/types` to the source file directly (not compiled output). This causes NestJS to output to `dist/apps/api/src/` -- the entry point is `"entryFile": "apps/api/src/main"` in `nest-cli.json`.
 
-### Web Routing
+### Web routing
 
 Next.js route groups:
 - `app/(auth)/` -- login, register, OAuth callback (own layout, no auth required)
 - `app/(app)/` -- plan, recipes, favorites, settings, onboarding, admin (own layout, auth required)
 - `app/api/[...proxy]/` -- API proxy route + NextAuth handlers at `app/api/auth/`
 
-### Web API Client
+### Web API client
 
 `apps/web/lib/api.ts` provides typed `api.get<T>()`, `api.post<T>()`, `api.patch<T>()`, `api.delete<T>()`. All requests use `credentials: 'include'` and go through the Next.js proxy in production. On 401, fires a session-expired callback that redirects to login.
 
