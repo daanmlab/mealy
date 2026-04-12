@@ -211,7 +211,7 @@ function deserializeJobs(raw: string): ImportJob[] {
 }
 
 export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
-  const [url, setUrl] = useState('');
+  const [urlsText, setUrlsText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<ImportJob[]>([]);
@@ -312,34 +312,51 @@ export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!url || submitting) return;
+    if (!urlsText.trim() || submitting) return;
+
+    const urls = urlsText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    const invalid = urls.filter((u) => {
+      try { new URL(u); return false; } catch { return true; }
+    });
+
+    if (invalid.length > 0) {
+      setSubmitError(`Invalid URL${invalid.length > 1 ? 's' : ''}: ${invalid.join(', ')}`);
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError(null);
 
-    try {
-      const { jobId } = await adminApi.importFromUrl(url);
-      const submittedUrl = url;
+    const errors: string[] = [];
+    const started: ImportJob[] = [];
 
-      setJobs((prev) => [
-        {
+    for (const u of urls) {
+      try {
+        const { jobId } = await adminApi.importFromUrl(u);
+        const job: ImportJob = {
           jobId,
-          url: submittedUrl,
+          url: u,
           status: 'queued',
           steps: makeInitialSteps(),
           startedAt: new Date(),
-          expanded: true,
-        },
-        ...prev,
-      ]);
-      setUrl('');
-
-      void openJobStream(jobId);
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to start import');
-    } finally {
-      setSubmitting(false);
+          expanded: urls.length === 1,
+        };
+        started.push(job);
+        setJobs((prev) => [job, ...prev]);
+        void openJobStream(jobId);
+      } catch (err) {
+        errors.push(`${u}: ${err instanceof Error ? err.message : 'Failed to start'}`);
+      }
     }
+
+    if (started.length > 0) setUrlsText('');
+    if (errors.length > 0) setSubmitError(errors.join('\n'));
+
+    setSubmitting(false);
   }
 
   function toggleExpanded(jobId: string) {
@@ -358,30 +375,30 @@ export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
     <div className="space-y-4">
       <form onSubmit={handleSubmit} className="space-y-3">
         <label className="block text-sm font-medium text-gray-700" htmlFor="url-input">
-          Recipe URL
+          Recipe URL(s)
         </label>
-        <div className="flex gap-2">
-          <input
-            id="url-input"
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com/recipe/..."
-            required
-            disabled={submitting}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
-          />
+        <textarea
+          id="url-input"
+          value={urlsText}
+          onChange={(e) => setUrlsText(e.target.value)}
+          placeholder={"https://example.com/recipe/...\nhttps://example.com/another-recipe/..."}
+          required
+          rows={3}
+          disabled={submitting}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 resize-y font-mono"
+        />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-gray-400">
+            One URL per line. Imported recipes are <strong>inactive</strong> by default — toggle active after review.
+          </p>
           <button
             type="submit"
-            disabled={submitting || !url}
-            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+            disabled={submitting || !urlsText.trim()}
+            className="shrink-0 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
           >
             {submitting ? 'Starting…' : 'Import'}
           </button>
         </div>
-        <p className="text-xs text-gray-400">
-          Imported recipes are <strong>inactive</strong> by default — toggle active after review.
-        </p>
         {submitError && (
           <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             ✗ {submitError}
