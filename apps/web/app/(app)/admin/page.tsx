@@ -60,7 +60,7 @@ export default function AdminPage() {
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-1.5 text-sm rounded-lg font-medium transition-colors ${
                 activeTab === tab
-                  ? 'bg-green-50 text-green-700'
+                  ? 'bg-olive-subtle text-olive'
                   : 'text-gray-500 hover:text-gray-900'
               }`}
             >

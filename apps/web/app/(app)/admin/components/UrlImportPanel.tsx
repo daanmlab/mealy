@@ -56,7 +56,7 @@ function StepIcon({ status }: { status: StepStatus }) {
     );
   if (status === 'done')
     return (
-      <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <svg className="w-4 h-4 text-olive shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
       </svg>
     );
@@ -86,7 +86,7 @@ function JobStatusIcon({ status }: { status: JobStatus }) {
     );
   if (status === 'done')
     return (
-      <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <svg className="w-4 h-4 text-olive shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
       </svg>
     );
@@ -136,7 +136,7 @@ function JobRow({
     <div
       className={`border rounded-lg overflow-hidden text-sm ${
         job.status === 'error'   ? 'border-red-200'  :
-        job.status === 'done'    ? 'border-green-200' :
+        job.status === 'done'    ? 'border-olive-subtle' :
         job.status === 'running' ? 'border-blue-200'  :
         'border-gray-200'
       }`}
@@ -146,7 +146,7 @@ function JobRow({
         onClick={onToggle}
         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:brightness-95 transition-all ${
           job.status === 'error'   ? 'bg-red-50'   :
-          job.status === 'done'    ? 'bg-green-50'  :
+          job.status === 'done'    ? 'bg-olive-subtle'  :
           job.status === 'running' ? 'bg-blue-50'   :
           'bg-gray-50'
         }`}
@@ -154,7 +154,7 @@ function JobRow({
         <JobStatusIcon status={job.status} />
         <span className="flex-1 font-mono text-xs text-gray-700 truncate min-w-0">{shortUrl}</span>
         {job.status === 'done' && job.result && (
-          <span className="shrink-0 text-xs text-green-700 font-medium max-w-[160px] truncate">
+          <span className="shrink-0 text-xs text-olive font-medium max-w-[160px] truncate">
             &ldquo;{job.result.title}&rdquo;
           </span>
         )}
@@ -369,12 +369,12 @@ export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
             placeholder="https://example.com/recipe/..."
             required
             disabled={submitting}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-olive focus:border-transparent disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={submitting || !url}
-            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+            className="px-4 py-2 bg-olive text-white text-sm font-medium rounded-lg hover:bg-olive-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
           >
             {submitting ? 'Starting…' : 'Import'}
           </button>

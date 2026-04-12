@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth';
+import MealyLogo from '@/components/MealyLogo';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -28,19 +29,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading || !user || (!user.onboardingDone && pathname !== '/onboarding')) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Loading…</p>
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <MealyLogo size={72} style={{ animation: 'logo-pulse 1.6s ease-in-out infinite' }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-cream flex flex-col">
       {pathname !== '/onboarding' && (
         <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
           <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-            <Link href="/plan" className="font-bold text-green-600 text-lg tracking-tight">
-              mealy
+            <Link href="/plan" className="flex items-center gap-2">
+              <MealyLogo size={28} />
+              <span className="font-bold text-olive text-lg tracking-tight">mealy</span>
             </Link>
 
             {/* Desktop nav */}
@@ -51,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   href={href}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     pathname.startsWith(href)
-                      ? 'bg-green-50 text-green-700'
+                      ? 'bg-olive-subtle text-olive'
                       : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >
@@ -97,7 +99,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   onClick={() => setMobileOpen(false)}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     pathname.startsWith(href)
-                      ? 'bg-green-50 text-green-700'
+                      ? 'bg-olive-subtle text-olive'
                       : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >

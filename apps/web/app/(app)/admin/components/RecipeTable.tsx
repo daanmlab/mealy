@@ -126,12 +126,12 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
                         disabled={busy}
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                           recipe.isActive
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            ? 'bg-olive-subtle text-olive hover:bg-olive-subtle'
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${recipe.isActive ? 'bg-green-500' : 'bg-gray-400'}`}
+                          className={`w-1.5 h-1.5 rounded-full ${recipe.isActive ? 'bg-olive' : 'bg-gray-400'}`}
                         />
                         {recipe.isActive ? 'Active' : 'Inactive'}
                       </button>
