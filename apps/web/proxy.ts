@@ -6,6 +6,7 @@ const PUBLIC_PATHS = ['/login', '/register'];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const secureCookie = request.nextUrl.protocol === 'https:';
 
   // NextAuth handles its own routes — pass through untouched.
   if (pathname.startsWith('/api/auth/')) {
@@ -21,6 +22,7 @@ export async function proxy(request: NextRequest) {
     const token = await getToken({
       req: request,
       secret: process.env.AUTH_SECRET,
+      secureCookie,
       raw: true,
     });
 
@@ -39,6 +41,7 @@ export async function proxy(request: NextRequest) {
   const sessionToken = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
+    secureCookie,
     raw: true,
   });
 
