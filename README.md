@@ -6,14 +6,14 @@ Mealy is a full-stack meal-planning application. It lets users discover recipes,
 
 ```
 ┌─────────────────────┐     HTTPS      ┌─────────────────────────┐
-│   Next.js (web)     │ ─────────────►   NestJS API            │
+│   Next.js (web)     │ ─────────────► │ NestJS API              │
 │   Vercel            │                │   Render (Docker)       │
 └─────────────────────┘                └────────────┬────────────┘
                                                     │
                                        ┌────────────┴────────────┐
                                        │                         │
                                ┌───────▼───────┐   ┌────────────▼──────┐
-                               │  Neon Postgres  │   │  Upstash Redis    │
+                               │ Neon Postgres │   │  Upstash Redis    │
                                │  (database)   │   │  (sessions/cache) │
                                └───────────────┘   └───────────────────┘
 ```
