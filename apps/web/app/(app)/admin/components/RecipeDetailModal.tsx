@@ -46,11 +46,11 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
               <span
                 className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
                   recipe.isActive
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-olive-subtle text-olive'
                     : 'bg-gray-100 text-gray-500'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${recipe.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${recipe.isActive ? 'bg-olive' : 'bg-gray-400'}`} />
                 {recipe.isActive ? 'Active' : 'Inactive'}
               </span>
               {recipe.tags.map(({ tag }) => (

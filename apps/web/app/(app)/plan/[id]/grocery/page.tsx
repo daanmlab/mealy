@@ -146,7 +146,7 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+          className="px-6 py-2.5 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark disabled:opacity-50 transition-colors"
         >
           {generating ? 'Generating…' : 'Generate grocery list'}
         </button>
@@ -181,7 +181,7 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
       {/* Progress bar */}
       <div className="h-1.5 bg-gray-100 rounded-full mb-6">
         <div
-          className="h-full bg-green-500 rounded-full transition-all"
+          className="h-full bg-olive rounded-full transition-all"
           style={{ width: total ? `${(checkedCount / total) * 100}%` : '0%' }}
         />
       </div>
@@ -225,9 +225,9 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
                         <span
                           className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                             allChecked
-                              ? 'border-green-500 bg-green-500'
+                              ? 'border-olive bg-olive'
                               : anyChecked
-                                ? 'border-green-300 bg-green-100'
+                                ? 'border-olive-subtle bg-olive-subtle'
                                 : 'border-gray-300'
                           }`}
                         >

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { useAuth } from '@/contexts/auth';
+import MealyLogo from '@/components/MealyLogo';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -31,6 +32,9 @@ export default function LoginPage() {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
       <div className="text-center mb-8">
+        <div className="flex justify-center mb-4">
+          <MealyLogo size={52} />
+        </div>
         <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
         <p className="text-gray-500 mt-1 text-sm">Sign in to plan your meals</p>
       </div>
@@ -43,7 +47,7 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-olive focus:border-transparent"
             placeholder="you@example.com"
           />
         </div>
@@ -54,7 +58,7 @@ export default function LoginPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-olive focus:border-transparent"
             placeholder="••••••••"
           />
         </div>
@@ -64,7 +68,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 bg-green-600 text-white rounded-lg font-medium text-sm hover:bg-green-700 disabled:opacity-50 transition-colors"
+          className="w-full py-2.5 bg-olive text-white rounded-lg font-medium text-sm hover:bg-olive-dark disabled:opacity-50 transition-colors"
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
@@ -87,7 +91,7 @@ export default function LoginPage() {
 
       <p className="mt-6 text-center text-sm text-gray-500">
         No account?{' '}
-        <Link href="/register" className="text-green-600 hover:underline font-medium">
+        <Link href="/register" className="text-olive hover:underline font-medium">
           Sign up
         </Link>
       </p>
