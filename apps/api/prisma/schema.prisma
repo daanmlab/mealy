@@ -292,3 +292,19 @@ model FavoriteRecipe {
   @@id([userId, recipeId])
   @@map("favorite_recipes")
 }
+
+// ─── Audit log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String   // e.g. "recipe.create", "recipe.update", "recipe.delete"
+  entityType String   // e.g. "recipe", "ingredient"
+  entityId   String
+  actorId    String
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@map("audit_logs")
+}
