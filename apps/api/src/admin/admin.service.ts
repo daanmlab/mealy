@@ -4,6 +4,8 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { ReplaySubject, Observable } from 'rxjs';
 import { randomUUID } from 'crypto';
 import type { Prisma } from '@prisma/client';
@@ -61,6 +63,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly recipes: RecipesService,
     private readonly catalog: CatalogService,
+    @InjectQueue('import') private readonly importQueue: Queue,
   ) {
     const apiKey = process.env['OPENAI_API_KEY'];
     this.openai = apiKey ? new OpenAI({ apiKey }) : null;
@@ -72,32 +75,23 @@ export class AdminService {
     return subject.asObservable();
   }
 
-  startImportJob(url: string): { jobId: string; url: string } {
+  getSubject(jobId: string): ReplaySubject<ImportJobEvent> {
+    const subject = this.jobSubjects.get(jobId);
+    if (!subject) throw new NotFoundException(`Import job ${jobId} not found`);
+    return subject;
+  }
+
+  cleanupSubject(jobId: string): void {
+    this.jobSubjects.delete(jobId);
+  }
+
+  async startImportJob(url: string): Promise<{ jobId: string; url: string }> {
     const jobId = randomUUID();
     // ReplaySubject buffers ALL events — late SSE subscribers still get the full history
     const subject = new ReplaySubject<ImportJobEvent>();
     this.jobSubjects.set(jobId, subject);
 
-    setImmediate(() => {
-      this.runImportPipeline(url, (event) => {
-        subject.next({ ...event, jobId, url });
-      })
-        .then(() => subject.complete())
-        .catch((err: Error) => {
-          subject.next({
-            jobId,
-            url,
-            step: 'save',
-            status: 'error',
-            message: err.message,
-          });
-          subject.complete();
-        })
-        .finally(() => {
-          // Clean up after 10 minutes to avoid memory leaks
-          setTimeout(() => this.jobSubjects.delete(jobId), 10 * 60 * 1000);
-        });
-    });
+    await this.importQueue.add('scrape', { jobId, url });
 
     return { jobId, url };
   }
@@ -578,7 +572,7 @@ Only include tags that genuinely apply. Return 2–6 tags maximum.`;
     }
   }
 
-  private async runImportPipeline(url: string, emit: Emit) {
+  async executePipeline(url: string, emit: Emit) {
     this.logger.log(`Importing recipe from URL: ${url}`);
 
     emit({ step: 'fetch', status: 'running', message: `Fetching ${url}…` });
