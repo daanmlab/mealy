@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { ReplaySubject, Observable } from 'rxjs';
 import { randomUUID } from 'crypto';
 import type { Prisma } from '@prisma/client';
 import OpenAI from 'openai';
@@ -24,17 +23,13 @@ import {
   groupIngredients,
   canonicalizeIngredients,
 } from '@mealy/scraper';
+import {
+  ImportJobSnapshot,
+  ImportStepName,
+  ImportStepStatus,
+} from '@mealy/types';
 
-export type ImportStepName =
-  | 'fetch'
-  | 'extract'
-  | 'verify'
-  | 'group'
-  | 'normalize'
-  | 'canonicalize'
-  | 'save';
-
-export type ImportStepStatus = 'running' | 'done' | 'skipped' | 'error';
+export type { ImportStepName, ImportStepStatus };
 
 export interface ImportStepEvent {
   step: ImportStepName;
@@ -43,20 +38,39 @@ export interface ImportStepEvent {
   recipe?: { id: string; title: string };
 }
 
-export interface ImportJobEvent extends ImportStepEvent {
-  jobId: string;
-  url: string;
+export interface ImportSubStepEvent {
+  step: ImportStepName;
+  subStep: string;
+  status: 'running' | 'done' | 'skipped';
+  message?: string;
 }
 
-type Emit = (event: ImportStepEvent) => void;
+type EmitEvent = ImportStepEvent | ImportSubStepEvent;
+type Emit = (event: EmitEvent) => void;
+
+const ALL_STEPS: ImportStepName[] = [
+  'fetch',
+  'extract',
+  'verify',
+  'group',
+  'normalize',
+  'canonicalize',
+  'save',
+];
+
+const STEP_SUBSTEPS: Partial<Record<ImportStepName, string[]>> = {
+  fetch: ['request', 'capture', 'browser'],
+  extract: ['jsonld', 'prepare', 'llm'],
+  verify: ['analyze', 'fix'],
+  group: ['analyze', 'assign'],
+  canonicalize: ['catalog', 'match'],
+  save: ['write'],
+};
 
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
-  private readonly jobSubjects = new Map<
-    string,
-    ReplaySubject<ImportJobEvent>
-  >();
+  private readonly jobSnapshots = new Map<string, ImportJobSnapshot>();
   private readonly openai: OpenAI | null;
 
   constructor(
@@ -69,27 +83,41 @@ export class AdminService {
     this.openai = apiKey ? new OpenAI({ apiKey }) : null;
   }
 
-  getJobStream(jobId: string): Observable<ImportJobEvent> {
-    const subject = this.jobSubjects.get(jobId);
-    if (!subject) throw new NotFoundException(`Import job ${jobId} not found`);
-    return subject.asObservable();
+  getJobSnapshot(jobId: string): ImportJobSnapshot {
+    const snapshot = this.jobSnapshots.get(jobId);
+    if (!snapshot) throw new NotFoundException(`Import job ${jobId} not found`);
+    return snapshot;
   }
 
-  getSubject(jobId: string): ReplaySubject<ImportJobEvent> {
-    const subject = this.jobSubjects.get(jobId);
-    if (!subject) throw new NotFoundException(`Import job ${jobId} not found`);
-    return subject;
+  updateJobSnapshot(
+    jobId: string,
+    fn: (s: ImportJobSnapshot) => ImportJobSnapshot,
+  ): void {
+    const snapshot = this.jobSnapshots.get(jobId);
+    if (snapshot) this.jobSnapshots.set(jobId, fn(snapshot));
   }
 
-  cleanupSubject(jobId: string): void {
-    this.jobSubjects.delete(jobId);
+  cleanupSnapshot(jobId: string): void {
+    this.jobSnapshots.delete(jobId);
   }
 
   async startImportJob(url: string): Promise<{ jobId: string; url: string }> {
     const jobId = randomUUID();
-    // ReplaySubject buffers ALL events — late SSE subscribers still get the full history
-    const subject = new ReplaySubject<ImportJobEvent>();
-    this.jobSubjects.set(jobId, subject);
+    this.jobSnapshots.set(jobId, {
+      jobId,
+      url,
+      steps: ALL_STEPS.map((step) => ({
+        step,
+        status: 'pending',
+        message: '',
+        subSteps: (STEP_SUBSTEPS[step] ?? []).map((name) => ({
+          name,
+          status: 'pending',
+          message: '',
+        })),
+      })),
+      jobStatus: 'queued',
+    });
 
     await this.importQueue.add('scrape', { jobId, url });
 
@@ -575,50 +603,52 @@ Only include tags that genuinely apply. Return 2–6 tags maximum.`;
   async executePipeline(url: string, emit: Emit) {
     this.logger.log(`Importing recipe from URL: ${url}`);
 
+    // Helper to emit a sub-step event
+    const sub = (
+      step: ImportStepName,
+      subStep: string,
+      status: 'running' | 'done' | 'skipped',
+      message?: string,
+    ) => emit({ step, subStep, status, message });
+
     emit({ step: 'fetch', status: 'running', message: `Fetching ${url}…` });
     let html: string;
     try {
-      html = await fetchPage(url);
+      html = await fetchPage(url, {
+        onProgress: (s, status, message) => sub('fetch', s, status, message),
+      });
       emit({ step: 'fetch', status: 'done', message: 'Page fetched' });
     } catch (err) {
-      emit({
-        step: 'fetch',
-        status: 'error',
-        message: `Failed to fetch: ${err instanceof Error ? err.message : String(err)}`,
-      });
       throw new BadRequestException(
-        `Failed to fetch URL: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to fetch: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
     emit({
       step: 'extract',
       status: 'running',
-      message: 'Extracting recipe data (JSON-LD)…',
+      message: 'Extracting recipe data…',
     });
+    sub('extract', 'jsonld', 'running', 'Checking for JSON-LD…');
     let raw = extractFromJsonLd(html);
     if (raw) {
       this.logger.log('Extracted via JSON-LD');
+      sub('extract', 'jsonld', 'done', 'Found JSON-LD');
+      sub('extract', 'prepare', 'skipped');
+      sub('extract', 'llm', 'skipped');
       emit({
         step: 'extract',
         status: 'done',
         message: 'Extracted via JSON-LD',
       });
     } else {
-      emit({
-        step: 'extract',
-        status: 'running',
-        message: 'JSON-LD not found — trying LLM extraction…',
-      });
-      raw = await extractWithLlm(html);
+      sub('extract', 'jsonld', 'done', 'No JSON-LD found');
+      raw = await extractWithLlm(html, (s, status) =>
+        sub('extract', s, status),
+      );
       if (raw) {
         emit({ step: 'extract', status: 'done', message: 'Extracted via LLM' });
       } else {
-        emit({
-          step: 'extract',
-          status: 'error',
-          message: 'Could not extract recipe from URL',
-        });
         throw new BadRequestException(
           'Could not extract recipe from the provided URL',
         );
@@ -633,7 +663,13 @@ Only include tags that genuinely apply. Return 2–6 tags maximum.`;
         status: 'running',
         message: 'Verifying recipe quality…',
       });
-      const { recipe: fixed, wasFixed, issues } = await verifyAndFix(raw);
+      const {
+        recipe: fixed,
+        wasFixed,
+        issues,
+      } = await verifyAndFix(raw, {
+        onProgress: (s, status) => sub('verify', s, status),
+      });
       raw = fixed;
       emit({
         step: 'verify',
@@ -648,7 +684,9 @@ Only include tags that genuinely apply. Return 2–6 tags maximum.`;
         status: 'running',
         message: 'Grouping ingredients…',
       });
-      const groupMap = await groupIngredients(raw.ingredients, raw.steps);
+      const groupMap = await groupIngredients(raw.ingredients, raw.steps, {
+        onProgress: (s, status) => sub('group', s, status),
+      });
       if (groupMap.size > 0) {
         raw.ingredients = raw.ingredients.map((ing) => ({
           ...ing,
@@ -685,14 +723,18 @@ Only include tags that genuinely apply. Return 2–6 tags maximum.`;
       emit({
         step: 'canonicalize',
         status: 'running',
-        message: 'Canonicalizing ingredients against catalog…',
+        message: 'Canonicalizing ingredients…',
       });
+      // Non-blocking: canonicalization failures emit 'skipped' rather than 'error' so the import still completes.
       try {
+        sub('canonicalize', 'catalog', 'running', 'Loading catalog…');
         const dbCatalog = await this.catalog.getCatalog();
+        sub('canonicalize', 'catalog', 'done', 'Catalog loaded');
         const canonical = await canonicalizeIngredients(
           normalized.ingredients,
           dbCatalog.units,
           dbCatalog.ingredients,
+          { onProgress: (s, status) => sub('canonicalize', s, status) },
         );
         normalized.ingredients = canonical;
         emit({
@@ -719,10 +761,12 @@ Only include tags that genuinely apply. Return 2–6 tags maximum.`;
     }
 
     emit({ step: 'save', status: 'running', message: 'Saving recipe…' });
+    sub('save', 'write', 'running', 'Writing to database…');
     const recipe = await this.recipes.create(
       normalized as CreateRecipeDto,
       false,
     );
+    sub('save', 'write', 'done', 'Written');
     emit({
       step: 'save',
       status: 'done',

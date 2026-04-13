@@ -27,6 +27,7 @@ import type {
   CookTimePreference,
   AdminRecipeListItem,
   ImportUrlDto,
+  ImportJobSnapshot,
   IngredientSearchResult,
   UpdateRecipeFullInput,
   AuditLogEntry,
@@ -58,6 +59,7 @@ export type {
   CookTimePreference,
   AdminRecipeListItem,
   ImportUrlDto,
+  ImportJobSnapshot,
   IngredientSearchResult,
   UpdateRecipeFullInput,
   AuditLogEntry,
@@ -192,6 +194,8 @@ export const adminApi = {
   deleteRecipe: (id: string) => api.delete<void>(`/admin/recipes/${id}`),
   importFromUrl: (url: string) =>
     api.post<{ jobId: string; url: string }>('/admin/recipes/import-url', { url } satisfies ImportUrlDto),
+  getImportJobStatus: (jobId: string) =>
+    api.get<ImportJobSnapshot>(`/admin/recipes/import-url/status?jobId=${encodeURIComponent(jobId)}`),
   searchIngredients: (q: string, limit = 20) =>
     api.get<IngredientSearchResult[]>(
       `/admin/ingredients/search?q=${encodeURIComponent(q)}&limit=${limit}`,

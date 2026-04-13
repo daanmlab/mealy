@@ -99,18 +99,32 @@ ${JSON.stringify(raw, null, 2)}`;
  * Uses gpt-4o-mini to verify; uses `cleanModel` (default gpt-4o-mini) to fix if issues found.
  * Returns the fixed recipe (or original if valid) along with the issues list.
  */
+export type VerifyProgress = (
+  sub: 'analyze' | 'fix',
+  status: 'running' | 'done' | 'skipped',
+) => void;
+
 export async function verifyAndFix(
   raw: RawRecipe,
-  cleanModel = 'gpt-4o-mini',
+  options?: { cleanModel?: string; onProgress?: VerifyProgress },
 ): Promise<VerifyAndFixResult> {
+  const cleanModel = options?.cleanModel ?? 'gpt-4o-mini';
+  const prog = options?.onProgress ?? (() => {});
+
+  prog('analyze', 'running');
   const { valid, issues } = await verifyRecipe(raw);
+  prog('analyze', 'done');
 
   if (valid || issues.length === 0) {
+    prog('fix', 'skipped');
     return { recipe: raw, wasFixed: false, issues };
   }
 
   const client = getClient();
-  if (!client) return { recipe: raw, wasFixed: false, issues };
+  if (!client) {
+    prog('fix', 'skipped');
+    return { recipe: raw, wasFixed: false, issues };
+  }
 
   const prompt = `You are a recipe data fixer. The following recipe was parsed from a web page and has quality issues.
 
@@ -146,6 +160,7 @@ Original recipe (may contain errors):
 ${JSON.stringify(raw, null, 2)}`;
 
   try {
+    prog('fix', 'running');
     const response = await client.chat.completions.create({
       model: cleanModel,
       messages: [{ role: 'user', content: prompt }],
@@ -159,9 +174,11 @@ ${JSON.stringify(raw, null, 2)}`;
 
     if (!result.success) {
       console.warn('[verify] Fix response failed schema validation:', result.error.message);
+      prog('fix', 'skipped');
       return { recipe: raw, wasFixed: false, issues };
     }
 
+    prog('fix', 'done');
     return {
       recipe: {
         ...result.data,
@@ -172,6 +189,7 @@ ${JSON.stringify(raw, null, 2)}`;
     };
   } catch (err) {
     console.warn('[verify] Cleanup failed:', err instanceof Error ? err.message : err);
+    prog('fix', 'skipped');
     return { recipe: raw, wasFixed: false, issues };
   }
 }
@@ -190,16 +208,32 @@ const GroupAssignmentSchema = z.object({
  * E.g. "Combine the Marinade ingredients" → marks yoghurt, lemon juice, etc. as group "Marinade".
  * Returns a map of ingredient name → group name (only for grouped ingredients).
  */
+export type GroupProgress = (
+  sub: 'analyze' | 'assign',
+  status: 'running' | 'done' | 'skipped',
+) => void;
+
 export async function groupIngredients(
   ingredients: RawIngredient[],
   steps: string[],
-  model = 'gpt-4o-mini',
+  options?: { model?: string; onProgress?: GroupProgress },
 ): Promise<Map<string, string>> {
+  const model = options?.model ?? 'gpt-4o-mini';
+  const prog = options?.onProgress ?? (() => {});
+
   const client = getClient();
-  if (!client) return new Map();
+  if (!client) {
+    prog('analyze', 'skipped');
+    prog('assign', 'skipped');
+    return new Map();
+  }
 
   const stepsText = steps.join('\n');
-  if (!/\b\w+\s+ingredients?\b/i.test(stepsText)) return new Map();
+  if (!/\b\w+\s+ingredients?\b/i.test(stepsText)) {
+    prog('analyze', 'skipped');
+    prog('assign', 'skipped');
+    return new Map();
+  }
 
   const prompt = `You are a recipe ingredient organizer. Given a list of ingredients and the recipe steps, identify which ingredients belong to named groups implied by the steps (e.g. "Marinade", "Sauce", "Dressing", "Batter", "Topping").
 
@@ -216,25 +250,39 @@ Steps:
 ${stepsText}`;
 
   try {
+    prog('analyze', 'running');
     const response = await client.chat.completions.create({
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0,
       response_format: { type: 'json_object' },
     });
+    prog('analyze', 'done');
 
     const content = response.choices[0]?.message?.content ?? '{}';
     const parsed: unknown = JSON.parse(content);
     const result = GroupAssignmentSchema.safeParse(parsed);
-    if (!result.success) return new Map();
+    if (!result.success) {
+      prog('assign', 'skipped');
+      return new Map();
+    }
 
     const groupMap = new Map<string, string>();
     for (const item of result.data.assignments) {
       if (item.groupName) groupMap.set(item.name, item.groupName);
     }
+
+    if (groupMap.size === 0) {
+      prog('assign', 'skipped');
+    } else {
+      prog('assign', 'running');
+      prog('assign', 'done');
+    }
     return groupMap;
   } catch (err) {
     console.warn('[verify] Grouping failed:', err instanceof Error ? err.message : err);
+    prog('analyze', 'skipped');
+    prog('assign', 'skipped');
     return new Map();
   }
 }

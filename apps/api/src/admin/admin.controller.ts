@@ -9,11 +9,8 @@ import {
   Patch,
   Post,
   Query,
-  Sse,
   UseGuards,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
 import type { User } from '@prisma/client';
 import { AdminService } from './admin.service';
 import { ImportUrlDto, RenameTagDto, UpdateRecipeFullDto } from './admin.dto';
@@ -39,11 +36,9 @@ export class AdminController {
     return this.adminService.startImportJob(dto.url);
   }
 
-  @Sse('recipes/import-url/stream')
-  importStream(@Query('jobId') jobId: string): Observable<MessageEvent> {
-    return this.adminService
-      .getJobStream(jobId)
-      .pipe(map((event) => ({ data: event }) as MessageEvent));
+  @Get('recipes/import-url/status')
+  getImportStatus(@Query('jobId') jobId: string) {
+    return this.adminService.getJobSnapshot(jobId);
   }
 
   @Post('recipes')

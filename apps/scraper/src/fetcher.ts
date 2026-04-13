@@ -7,8 +7,9 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
 ];
 
-// Statuses where a plain HTTP retry won't help but a browser might
-const BROWSER_FALLBACK_STATUSES = new Set([402, 403, 429]);
+// Statuses (and 0 = network error / connection dropped) where a plain HTTP retry
+// won't help but a browser might succeed.
+const BROWSER_FALLBACK_STATUSES = new Set([0, 402, 403, 429]);
 
 // Statuses that are definitive failures — don't retry at all
 const NO_RETRY_STATUSES = new Set([400, 401, 404, 410, 451]);
@@ -67,19 +68,41 @@ async function fetchWithBrowser(url: string): Promise<string> {
   }
 }
 
-export async function fetchPage(url: string, retries = 3): Promise<string> {
+export type FetchProgress = (
+  sub: 'request' | 'capture' | 'browser',
+  status: 'running' | 'done',
+  message?: string,
+) => void;
+
+export async function fetchPage(
+  url: string,
+  options?: { retries?: number; onProgress?: FetchProgress },
+): Promise<string> {
+  const retries = options?.retries ?? 3;
+  const onProgress = options?.onProgress ?? (() => {});
   let lastError: Error | undefined;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      return await fetchWithHttp(url);
+      onProgress('request', 'running', 'Fetching via HTTP…');
+      const html = await fetchWithHttp(url);
+      onProgress('request', 'done', 'Loaded via HTTP');
+      onProgress('capture', 'running', 'Extracting HTML…');
+      onProgress('capture', 'done', 'HTML captured');
+      return html;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       const status = parseStatus(error);
 
       if (BROWSER_FALLBACK_STATUSES.has(status)) {
         console.log(`  ⚠ HTTP ${status} — retrying with headless browser…`);
-        return fetchWithBrowser(url);
+        onProgress('request', 'done', 'HTTP blocked');
+        onProgress('browser', 'running', 'Launching browser…');
+        const html = await fetchWithBrowser(url);
+        onProgress('browser', 'done', 'Loaded via browser');
+        onProgress('capture', 'running', 'Extracting HTML…');
+        onProgress('capture', 'done', 'HTML captured');
+        return html;
       }
 
       if (NO_RETRY_STATUSES.has(status)) throw error;
