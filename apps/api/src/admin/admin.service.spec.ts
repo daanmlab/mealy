@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
 import { AdminService } from './admin.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecipesService } from '../recipes/recipes.service';
@@ -85,6 +86,7 @@ describe('AdminService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RecipesService, useValue: mockRecipesService },
         { provide: CatalogService, useValue: mockCatalogService },
+        { provide: getQueueToken('import'), useValue: { add: jest.fn() } },
       ],
     }).compile();
     service = module.get(AdminService);
