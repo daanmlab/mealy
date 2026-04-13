@@ -124,6 +124,40 @@ export interface ImportUrlDto {
   url: string;
 }
 
+export type ImportStepName =
+  | 'fetch'
+  | 'extract'
+  | 'verify'
+  | 'group'
+  | 'normalize'
+  | 'canonicalize'
+  | 'save';
+
+export type ImportStepStatus = 'pending' | 'running' | 'done' | 'skipped' | 'error';
+
+export interface ImportSubStep {
+  name: string;
+  status: ImportStepStatus;
+  message: string;
+}
+
+export interface ImportJobStep {
+  step: ImportStepName;
+  status: ImportStepStatus;
+  message: string;
+  subSteps: ImportSubStep[];
+}
+
+export type ImportJobStatus = 'queued' | 'running' | 'done' | 'error';
+
+export interface ImportJobSnapshot {
+  jobId: string;
+  url: string;
+  steps: ImportJobStep[];
+  jobStatus: ImportJobStatus;
+  result?: { id: string; title: string };
+}
+
 // ─── Weekly Plan ──────────────────────────────────────────────────────────────
 
 export interface PlanMeal {

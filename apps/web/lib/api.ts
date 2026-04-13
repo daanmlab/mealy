@@ -27,7 +27,10 @@ import type {
   CookTimePreference,
   AdminRecipeListItem,
   ImportUrlDto,
+  ImportJobSnapshot,
 } from '@mealy/types';
+
+export type { ImportJobSnapshot };
 
 // Tag slugs are plain strings in the new schema
 export type RecipeTag = string;
@@ -184,4 +187,6 @@ export const adminApi = {
   deleteRecipe: (id: string) => api.delete<void>(`/admin/recipes/${id}`),
   importFromUrl: (url: string) =>
     api.post<{ jobId: string; url: string }>('/admin/recipes/import-url', { url } satisfies ImportUrlDto),
+  getImportJobStatus: (jobId: string) =>
+    api.get<ImportJobSnapshot>(`/admin/recipes/import-url/status?jobId=${encodeURIComponent(jobId)}`),
 };
