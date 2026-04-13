@@ -27,6 +27,9 @@ import type {
   CookTimePreference,
   AdminRecipeListItem,
   ImportUrlDto,
+  IngredientSearchResult,
+  UpdateRecipeFullInput,
+  AuditLogEntry,
 } from '@mealy/types';
 
 // Tag slugs are plain strings in the new schema
@@ -55,6 +58,9 @@ export type {
   CookTimePreference,
   AdminRecipeListItem,
   ImportUrlDto,
+  IngredientSearchResult,
+  UpdateRecipeFullInput,
+  AuditLogEntry,
 };
 
 // Called when NestJS returns 401 and there's no way to recover (e.g. session expired).
@@ -180,8 +186,27 @@ export const adminApi = {
     ),
   getRecipe: (id: string) => api.get<Recipe>(`/recipes/${id}`),
   toggleActive: (id: string, isActive: boolean) =>
-    api.patch<AdminRecipeListItem>(`/admin/recipes/${id}`, { isActive }),
+    api.patch<Recipe>(`/admin/recipes/${id}`, { isActive }),
+  updateRecipe: (id: string, data: UpdateRecipeFullInput) =>
+    api.patch<Recipe>(`/admin/recipes/${id}`, data),
   deleteRecipe: (id: string) => api.delete<void>(`/admin/recipes/${id}`),
   importFromUrl: (url: string) =>
     api.post<{ jobId: string; url: string }>('/admin/recipes/import-url', { url } satisfies ImportUrlDto),
+  searchIngredients: (q: string, limit = 20) =>
+    api.get<IngredientSearchResult[]>(
+      `/admin/ingredients/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    ),
+  getUnits: () => api.get<Unit[]>('/admin/units'),
+  getIngredientCategories: () =>
+    api.get<IngredientCategory[]>('/admin/ingredient-categories'),
+  getTags: () => api.get<Tag[]>('/admin/tags'),
+  suggestTags: (recipeId: string) =>
+    api.post<string[]>(`/admin/recipes/${recipeId}/suggest-tags`, {}),
+  renameTag: (id: string, name: string) =>
+    api.patch<Tag>(`/admin/tags/${id}`, { name }),
+  deleteTag: (id: string) => api.delete<void>(`/admin/tags/${id}`),
+  getAuditLogs: (page = 1, limit = 50) =>
+    api.get<{ items: AuditLogEntry[]; total: number; page: number; limit: number }>(
+      `/admin/audit-logs?page=${page}&limit=${limit}`,
+    ),
 };

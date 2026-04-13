@@ -210,15 +210,25 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
 
                   return (
                     <div key={ingredientId}>
-                      <button
+                      <div
                         onClick={async () => {
-                          // If all checked → uncheck all; otherwise check all
                           const targets = allChecked
                             ? subItems
                             : subItems.filter((i) => !i.isChecked);
                           await Promise.all(targets.map((item) => handleToggle(item)));
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            const targets = allChecked
+                              ? subItems
+                              : subItems.filter((i) => !i.isChecked);
+                            await Promise.all(targets.map((item) => handleToggle(item)));
+                          }
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors cursor-pointer ${
                           allChecked ? 'bg-gray-50' : 'bg-white border border-gray-100'
                         }`}
                       >
@@ -277,7 +287,7 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
                         <span className="text-xs text-gray-400 shrink-0">
                           {measurement}
                         </span>
-                      </button>
+                      </div>
 
                       {/* Expanded source list for multi-recipe ingredients */}
                       {sources.length > 1 && isExpanded && (
