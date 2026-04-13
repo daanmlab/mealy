@@ -9,7 +9,7 @@ interface ImportJobData {
   url: string;
 }
 
-@Processor('import', { concurrency: 1 })
+@Processor('import', { concurrency: 2 })
 export class ImportJobProcessor extends WorkerHost {
   private readonly logger = new Logger(ImportJobProcessor.name);
 

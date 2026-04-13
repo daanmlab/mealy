@@ -158,6 +158,47 @@ export interface ImportJobSnapshot {
   result?: { id: string; title: string };
 }
 
+// ─── Admin edit types ─────────────────────────────────────────────────────────
+
+export interface IngredientSearchResult {
+  id: string;
+  name: string;
+  category: IngredientCategory | null;
+}
+
+export interface UpdateRecipeIngredientInput {
+  /** Canonical ingredient ID — if provided, skip resolution and use directly */
+  ingredientId?: string;
+  /** Raw ingredient name — resolved via CatalogService if ingredientId is absent */
+  name: string;
+  amount: number;
+  unitSymbol: string;
+  categorySlug: string;
+  groupName?: string;
+}
+
+export interface UpdateRecipeFullInput {
+  title?: string;
+  description?: string;
+  cookTimeMinutes?: number;
+  servings?: number;
+  sourceUrl?: string | null;
+  isActive?: boolean;
+  steps?: { order: number; text: string }[];
+  tagSlugs?: string[];
+  ingredients?: UpdateRecipeIngredientInput[];
+}
+
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  actorId: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
 // ─── Weekly Plan ──────────────────────────────────────────────────────────────
 
 export interface PlanMeal {
