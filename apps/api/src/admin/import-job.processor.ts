@@ -1,14 +1,17 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { AdminService } from './admin.service';
+import { AdminService, ImportStepName } from './admin.service';
 
 interface ImportJobData {
   jobId: string;
   url: string;
 }
 
-@Processor('import', { concurrency: 1 })
+@Processor('import', { concurrency: 2 })
 export class ImportJobProcessor extends WorkerHost {
+  private readonly logger = new Logger(ImportJobProcessor.name);
+
   constructor(private readonly adminService: AdminService) {
     super();
   }
@@ -16,19 +19,26 @@ export class ImportJobProcessor extends WorkerHost {
   async process(job: Job<ImportJobData>): Promise<void> {
     const { jobId, url } = job.data;
     const subject = this.adminService.getSubject(jobId);
+    let currentStep: ImportStepName = 'fetch';
 
     try {
       await this.adminService.executePipeline(url, (event) => {
+        if (event.status === 'running') currentStep = event.step;
         subject.next({ ...event, jobId, url });
       });
       subject.complete();
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Import job ${jobId} failed at step "${currentStep}" for URL ${url}: ${message}`,
+        err instanceof Error ? err.stack : undefined,
+      );
       subject.next({
         jobId,
         url,
-        step: 'save',
+        step: currentStep,
         status: 'error',
-        message: err instanceof Error ? err.message : String(err),
+        message,
       });
       subject.complete();
     } finally {
