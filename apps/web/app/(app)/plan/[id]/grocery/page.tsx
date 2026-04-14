@@ -146,7 +146,7 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+          className="px-6 py-2.5 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark disabled:opacity-50 transition-colors"
         >
           {generating ? 'Generating…' : 'Generate grocery list'}
         </button>
@@ -181,7 +181,7 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
       {/* Progress bar */}
       <div className="h-1.5 bg-gray-100 rounded-full mb-6">
         <div
-          className="h-full bg-green-500 rounded-full transition-all"
+          className="h-full bg-olive rounded-full transition-all"
           style={{ width: total ? `${(checkedCount / total) * 100}%` : '0%' }}
         />
       </div>
@@ -210,24 +210,34 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
 
                   return (
                     <div key={ingredientId}>
-                      <button
+                      <div
                         onClick={async () => {
-                          // If all checked → uncheck all; otherwise check all
                           const targets = allChecked
                             ? subItems
                             : subItems.filter((i) => !i.isChecked);
                           await Promise.all(targets.map((item) => handleToggle(item)));
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            const targets = allChecked
+                              ? subItems
+                              : subItems.filter((i) => !i.isChecked);
+                            await Promise.all(targets.map((item) => handleToggle(item)));
+                          }
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors cursor-pointer ${
                           allChecked ? 'bg-gray-50' : 'bg-white border border-gray-100'
                         }`}
                       >
                         <span
                           className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                             allChecked
-                              ? 'border-green-500 bg-green-500'
+                              ? 'border-olive bg-olive'
                               : anyChecked
-                                ? 'border-green-300 bg-green-100'
+                                ? 'border-olive-subtle bg-olive-subtle'
                                 : 'border-gray-300'
                           }`}
                         >
@@ -277,7 +287,7 @@ export default function GroceryListPage({ params }: { params: Promise<{ id: stri
                         <span className="text-xs text-gray-400 shrink-0">
                           {measurement}
                         </span>
-                      </button>
+                      </div>
 
                       {/* Expanded source list for multi-recipe ingredients */}
                       {sources.length > 1 && isExpanded && (

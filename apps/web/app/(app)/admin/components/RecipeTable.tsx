@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import type { AdminRecipeListItem, Recipe } from '@/lib/api';
 import { adminApi } from '@/lib/api';
 import { RecipeDetailModal } from './RecipeDetailModal';
@@ -16,6 +17,7 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const router = useRouter();
 
   const openRecipe = (id: string) => {
     adminApi.getRecipe(id).then(setSelectedRecipe).catch(() => null);
@@ -26,12 +28,12 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
     setError(null);
     startTransition(async () => {
       try {
-        await adminApi.toggleActive(id, !current);
+        const updated = await adminApi.toggleActive(id, !current);
         setRecipes((prev) =>
           prev.map((r) => (r.id === id ? { ...r, isActive: !current } : r)),
         );
         // Keep modal in sync if it's open
-        setSelectedRecipe((prev) => prev?.id === id ? { ...prev, isActive: !current } : prev);
+        setSelectedRecipe((prev) => prev?.id === id ? { ...prev, isActive: updated.isActive } : prev);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to update recipe');
       } finally {
@@ -88,10 +90,10 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
                 return (
                   <tr
                     key={recipe.id}
-                    className={`cursor-pointer hover:bg-gray-50 transition-colors ${busy ? 'opacity-50' : ''}`}
+                    className={`hover:bg-gray-50 transition-colors ${busy ? 'opacity-50' : ''}`}
                   >
                     <td
-                      className="px-4 py-3 font-medium text-gray-900"
+                      className="px-4 py-3 font-medium text-gray-900 cursor-pointer"
                       onClick={() => openRecipe(recipe.id)}
                     >
                       {recipe.title}
@@ -100,7 +102,7 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
                       </span>
                     </td>
                     <td
-                      className="px-4 py-3 hidden md:table-cell"
+                      className="px-4 py-3 hidden md:table-cell cursor-pointer"
                       onClick={() => openRecipe(recipe.id)}
                     >
                       <div className="flex flex-wrap gap-1">
@@ -115,7 +117,7 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
                       </div>
                     </td>
                     <td
-                      className="px-4 py-3 text-gray-500 hidden sm:table-cell"
+                      className="px-4 py-3 text-gray-500 hidden sm:table-cell cursor-pointer"
                       onClick={() => openRecipe(recipe.id)}
                     >
                       {recipe.cookTimeMinutes} min
@@ -126,24 +128,33 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
                         disabled={busy}
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                           recipe.isActive
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            ? 'bg-olive-subtle text-olive hover:bg-olive-subtle'
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${recipe.isActive ? 'bg-green-500' : 'bg-gray-400'}`}
+                          className={`w-1.5 h-1.5 rounded-full ${recipe.isActive ? 'bg-olive' : 'bg-gray-400'}`}
                         />
                         {recipe.isActive ? 'Active' : 'Inactive'}
                       </button>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(recipe.id, recipe.title); }}
-                        disabled={busy}
-                        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); router.push(`/admin/recipes/${recipe.id}/edit`); }}
+                          disabled={busy}
+                          className="text-xs text-gray-500 hover:text-gray-900 transition-colors font-medium"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(recipe.id, recipe.title); }}
+                          disabled={busy}
+                          className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -153,7 +164,12 @@ export function RecipeTable({ initialRecipes, total }: RecipeTableProps) {
         </div>
       </div>
 
-      <RecipeDetailModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
+      <RecipeDetailModal
+        recipe={selectedRecipe}
+        onClose={() => setSelectedRecipe(null)}
+        onEdit={(id) => router.push(`/admin/recipes/${id}/edit`)}
+      />
     </>
   );
 }
+

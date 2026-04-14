@@ -50,7 +50,7 @@ export default function OnboardingPage() {
             onClick={() => setPeopleCount(n)}
             className={`flex-1 py-3 rounded-xl border-2 font-semibold transition-colors ${
               peopleCount === n
-                ? 'border-green-500 bg-green-50 text-green-700'
+                ? 'border-olive bg-olive-subtle text-olive'
                 : 'border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
@@ -66,7 +66,7 @@ export default function OnboardingPage() {
             onClick={() => setMealsPerWeek(n)}
             className={`flex-1 py-3 rounded-xl border-2 font-semibold transition-colors ${
               mealsPerWeek === n
-                ? 'border-green-500 bg-green-50 text-green-700'
+                ? 'border-olive bg-olive-subtle text-olive'
                 : 'border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
@@ -86,7 +86,7 @@ export default function OnboardingPage() {
             onClick={() => setGoal(value)}
             className={`p-4 rounded-xl border-2 text-left transition-colors ${
               goal === value
-                ? 'border-green-500 bg-green-50'
+                ? 'border-olive bg-olive-subtle'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
@@ -103,7 +103,7 @@ export default function OnboardingPage() {
             onClick={() => setCookTime(value)}
             className={`flex-1 py-3 rounded-xl border-2 text-sm font-medium transition-colors ${
               cookTime === value
-                ? 'border-green-500 bg-green-50 text-green-700'
+                ? 'border-olive bg-olive-subtle text-olive'
                 : 'border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
@@ -138,18 +138,18 @@ export default function OnboardingPage() {
   ];
 
   return (
-    <div className="h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="h-screen bg-cream flex items-center justify-center px-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-gray-400 font-medium">
               Step {step + 1} of {steps.length}
             </span>
-            <span className="text-green-600 font-bold text-lg">mealy</span>
+            <span className="text-olive font-bold text-lg">mealy</span>
           </div>
           <div className="h-1.5 bg-gray-100 rounded-full">
             <div
-              className="h-full bg-green-500 rounded-full transition-all"
+              className="h-full bg-olive rounded-full transition-all"
               style={{ width: `${((step + 1) / steps.length) * 100}%` }}
             />
           </div>
@@ -169,7 +169,7 @@ export default function OnboardingPage() {
           {step < steps.length - 1 ? (
             <button
               onClick={() => setStep((s) => s + 1)}
-              className="flex-1 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 transition-colors"
+              className="flex-1 py-2.5 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark transition-colors"
             >
               Next
             </button>
@@ -177,7 +177,7 @@ export default function OnboardingPage() {
             <button
               onClick={finish}
               disabled={saving}
-              className="flex-1 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+              className="flex-1 py-2.5 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark disabled:opacity-50 transition-colors"
             >
               {saving ? 'Saving…' : "Let's go →"}
             </button>

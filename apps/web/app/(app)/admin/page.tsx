@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/auth';
 import { adminApi, type AdminRecipeListItem } from '@/lib/api';
 import { RecipeTable } from './components/RecipeTable';
@@ -49,6 +50,10 @@ export default function AdminPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Admin</h1>
         <p className="text-sm text-gray-500 mt-1">Manage recipes and import new ones.</p>
+        <div className="flex gap-3 mt-3">
+          <Link href="/admin/tags" className="text-sm text-blue-600 hover:underline">🏷 Manage tags</Link>
+          <Link href="/admin/audit" className="text-sm text-blue-600 hover:underline">📋 Audit log</Link>
+        </div>
       </div>
 
       <section className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
@@ -60,7 +65,7 @@ export default function AdminPage() {
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-1.5 text-sm rounded-lg font-medium transition-colors ${
                 activeTab === tab
-                  ? 'bg-green-50 text-green-700'
+                  ? 'bg-olive-subtle text-olive'
                   : 'text-gray-500 hover:text-gray-900'
               }`}
             >

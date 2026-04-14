@@ -317,7 +317,7 @@ export default function PlanPage() {
               <button
                 onClick={handleConfirm}
                 disabled={confirming}
-                className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark disabled:opacity-50 transition-colors"
               >
                 {confirming ? 'Confirming…' : 'Confirm & shop →'}
               </button>
@@ -331,7 +331,7 @@ export default function PlanPage() {
                 </button>
                 <button
                   onClick={() => router.push(`/plan/${plan.id}/grocery`)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 transition-colors"
+                  className="px-4 py-2 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark transition-colors"
                 >
                   Grocery list →
                 </button>
@@ -367,18 +367,18 @@ export default function PlanPage() {
                         !isActive
                           ? 'opacity-30 cursor-default bg-gray-50'
                           : isSelected
-                            ? 'bg-green-50'
+                            ? 'bg-olive-subtle'
                             : 'hover:bg-gray-50'
                       }`}
                     >
                       <span
-                        className={`text-[11px] font-semibold uppercase tracking-wide ${isSelected ? 'text-green-700' : 'text-gray-400'}`}
+                        className={`text-[11px] font-semibold uppercase tracking-wide ${isSelected ? 'text-olive' : 'text-gray-400'}`}
                       >
                         {DAY_LABELS[day]}
                       </span>
                       {meal && (
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${meal.isLocked ? 'bg-amber-400' : isSelected ? 'bg-green-500' : 'bg-gray-300'}`}
+                          className={`w-1.5 h-1.5 rounded-full ${meal.isLocked ? 'bg-amber-400' : isSelected ? 'bg-olive' : 'bg-gray-300'}`}
                         />
                       )}
                     </button>
@@ -393,7 +393,7 @@ export default function PlanPage() {
                     <div className="flex-1 min-w-0">
                       <Link
                         href={`/recipes/${selected.recipe.id}`}
-                        className="font-semibold text-gray-900 hover:text-green-700 transition-colors leading-tight block"
+                        className="font-semibold text-gray-900 hover:text-olive-dark transition-colors leading-tight block"
                       >
                         {selected.recipe.title}
                       </Link>
@@ -478,7 +478,7 @@ export default function PlanPage() {
                   onClick={() => setSelected(meal)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left ${
                     selected?.id === meal.id
-                      ? 'border-green-200 bg-green-50'
+                      ? 'border-olive-subtle bg-olive-subtle'
                       : 'border-gray-100 bg-white hover:border-gray-200'
                   }`}
                 >
@@ -499,7 +499,7 @@ export default function PlanPage() {
             {!isConfirmed && (
               <button
                 onClick={handleRegenerate}
-                className="w-full py-2.5 border border-dashed border-gray-300 rounded-xl text-sm text-gray-400 hover:border-green-400 hover:text-green-600 transition-colors"
+                className="w-full py-2.5 border border-dashed border-gray-300 rounded-xl text-sm text-gray-400 hover:border-olive hover:text-olive transition-colors"
               >
                 ↺ Regenerate all meals
               </button>

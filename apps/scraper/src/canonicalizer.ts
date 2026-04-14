@@ -23,12 +23,17 @@ const MappingSchema = z.object({
  *
  * Falls back to the original values if the LLM is unavailable or fails.
  */
+export type CanonProgress = (sub: 'match', status: 'running' | 'done') => void;
+
 export async function canonicalizeIngredients(
   ingredients: NormalizedIngredient[],
   knownUnits: string[],
   knownIngredients: string[],
-  model = 'gpt-4o-mini',
+  options?: { model?: string; onProgress?: CanonProgress },
 ): Promise<NormalizedIngredient[]> {
+  const model = options?.model ?? 'gpt-4o-mini';
+  const prog = options?.onProgress ?? (() => {});
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || ingredients.length === 0) return ingredients;
 
@@ -64,12 +69,14 @@ ${JSON.stringify(
 )}`;
 
   try {
+    prog('match', 'running');
     const response = await client.chat.completions.create({
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0,
       response_format: { type: 'json_object' },
     });
+    prog('match', 'done');
 
     const content = response.choices[0]?.message?.content ?? '{}';
     const parsed: unknown = JSON.parse(content);

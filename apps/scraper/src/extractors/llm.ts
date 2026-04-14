@@ -39,7 +39,13 @@ function trimHtml(html: string): string {
   return text.slice(0, 8000);
 }
 
-export async function extractWithLlm(html: string): Promise<RawRecipe | null> {
+export type ExtractProgress = (sub: 'prepare' | 'llm', status: 'running' | 'done') => void;
+
+export async function extractWithLlm(
+  html: string,
+  onProgress?: ExtractProgress,
+): Promise<RawRecipe | null> {
+  const prog = onProgress ?? (() => {});
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     console.warn('[llm] OPENAI_API_KEY not set, skipping LLM extraction');
@@ -47,7 +53,9 @@ export async function extractWithLlm(html: string): Promise<RawRecipe | null> {
   }
 
   const client = new OpenAI({ apiKey });
+  prog('prepare', 'running');
   const pageText = trimHtml(html);
+  prog('prepare', 'done');
 
   const prompt = `Extract the recipe from the following web page text and return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
 
@@ -76,11 +84,13 @@ Page text:
 ${pageText}`;
 
   try {
+    prog('llm', 'running');
     const response = await client.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0,
     });
+    prog('llm', 'done');
 
     const content = response.choices[0]?.message?.content ?? '';
     const jsonMatch = content.match(/\{[\s\S]*\}/);

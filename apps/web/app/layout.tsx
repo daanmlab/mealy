@@ -16,6 +16,15 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: 'Mealy — Plan your meals in minutes',
   description: "Plan your week's meals and get an easy grocery list.",
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
+      { url: '/icon-512.png', type: 'image/png', sizes: '512x512' },
+    ],
+    apple: '/apple-icon.png',
+  },
+  manifest: '/manifest.webmanifest',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

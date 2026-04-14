@@ -6,9 +6,10 @@ import type { Recipe } from '@/lib/api';
 interface Props {
   recipe: Recipe | null;
   onClose: () => void;
+  onEdit?: (id: string) => void;
 }
 
-export function RecipeDetailModal({ recipe, onClose }: Props) {
+export function RecipeDetailModal({ recipe, onClose, onEdit }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,11 +47,11 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
               <span
                 className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
                   recipe.isActive
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-olive-subtle text-olive'
                     : 'bg-gray-100 text-gray-500'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${recipe.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${recipe.isActive ? 'bg-olive' : 'bg-gray-400'}`} />
                 {recipe.isActive ? 'Active' : 'Inactive'}
               </span>
               {recipe.tags.map(({ tag }) => (
@@ -64,15 +65,25 @@ export function RecipeDetailModal({ recipe, onClose }: Props) {
               <p className="mt-1 text-sm text-gray-500 line-clamp-2">{recipe.description}</p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onEdit && (
+              <button
+                onClick={() => { onClose(); onEdit(recipe.id); }}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Edit
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">

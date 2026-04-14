@@ -79,7 +79,7 @@ async function scrapeUrl(
 
   // 3. Verify + fix (runs by default when OPENAI_API_KEY is set, skip with --no-verify)
   if (verify && process.env.OPENAI_API_KEY) {
-    const { recipe: fixed, wasFixed, issues } = await verifyAndFix(raw, cleanModel);
+    const { recipe: fixed, wasFixed, issues } = await verifyAndFix(raw, { cleanModel });
     if (issues.length === 0) {
       console.log('  ✓ Verified: looks good');
     } else if (wasFixed) {
@@ -92,7 +92,7 @@ async function scrapeUrl(
     raw = fixed;
 
     // 4. Identify ingredient groups from step context
-    const groupMap = await groupIngredients(raw.ingredients, raw.steps, cleanModel);
+    const groupMap = await groupIngredients(raw.ingredients, raw.steps, { model: cleanModel });
     if (groupMap.size > 0) {
       console.log(`  ✓ Grouped: ${groupMap.size} ingredient(s) assigned to named groups`);
       raw.ingredients = raw.ingredients.map((ing) => ({
@@ -116,7 +116,7 @@ async function scrapeUrl(
         normalized.ingredients,
         catalog.units,
         catalog.ingredients,
-        cleanModel,
+        { model: cleanModel },
       );
       const changed = canonical.filter(
         (ing, i) =>

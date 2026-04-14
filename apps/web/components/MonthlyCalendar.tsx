@@ -148,7 +148,7 @@ export function MonthlyCalendar({
       <div className="pb-1 relative">
         {rowHeight > 0 && selectedRowIndex !== -1 && (
           <div
-            className="absolute inset-x-1 z-[2] bg-white rounded-[1em] ring-1 ring-green-300 shadow-sm pointer-events-none transition-transform duration-300 ease-in-out"
+            className="absolute inset-x-1 z-[2] bg-white rounded-[1em] ring-1 ring-olive-subtle shadow-sm pointer-events-none transition-transform duration-300 ease-in-out"
             style={{
               height: rowHeight,
               top: 0,
@@ -187,7 +187,7 @@ export function MonthlyCalendar({
                     <span
                       className={`text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-medium ${
                         isToday
-                          ? 'bg-green-600 text-white'
+                          ? 'bg-olive text-white'
                           : 'text-gray-700 hover:bg-gray-100'
                       }`}
                     >
@@ -195,7 +195,7 @@ export function MonthlyCalendar({
                     </span>
                     <div className="flex gap-0.5 mt-0.5 h-2 items-center justify-center">
                       {hasMeal && (
-                        <span className="w-1 h-1 rounded-full bg-green-500 block" />
+                        <span className="w-1 h-1 rounded-full bg-olive block" />
                       )}
                       {hasGrocery && (
                         <span className="w-1 h-1 rounded-full bg-amber-400 block" />

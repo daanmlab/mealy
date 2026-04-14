@@ -147,6 +147,81 @@ export interface ImportUrlDto {
   url: string;
 }
 
+export type ImportStepName =
+  | 'fetch'
+  | 'extract'
+  | 'verify'
+  | 'group'
+  | 'normalize'
+  | 'canonicalize'
+  | 'save';
+
+export type ImportStepStatus = 'pending' | 'running' | 'done' | 'skipped' | 'error';
+
+export interface ImportSubStep {
+  name: string;
+  status: ImportStepStatus;
+  message: string;
+}
+
+export interface ImportJobStep {
+  step: ImportStepName;
+  status: ImportStepStatus;
+  message: string;
+  subSteps: ImportSubStep[];
+}
+
+export type ImportJobStatus = 'queued' | 'running' | 'done' | 'error';
+
+export interface ImportJobSnapshot {
+  jobId: string;
+  url: string;
+  steps: ImportJobStep[];
+  jobStatus: ImportJobStatus;
+  result?: { id: string; title: string };
+}
+
+// ─── Admin edit types ─────────────────────────────────────────────────────────
+
+export interface IngredientSearchResult {
+  id: string;
+  name: string;
+  category: IngredientCategory | null;
+}
+
+export interface UpdateRecipeIngredientInput {
+  /** Canonical ingredient ID — if provided, skip resolution and use directly */
+  ingredientId?: string;
+  /** Raw ingredient name — resolved via CatalogService if ingredientId is absent */
+  name: string;
+  amount: number;
+  unitSymbol: string;
+  categorySlug: string;
+  groupName?: string;
+}
+
+export interface UpdateRecipeFullInput {
+  title?: string;
+  description?: string;
+  cookTimeMinutes?: number;
+  servings?: number;
+  sourceUrl?: string | null;
+  isActive?: boolean;
+  steps?: { order: number; text: string }[];
+  tagSlugs?: string[];
+  ingredients?: UpdateRecipeIngredientInput[];
+}
+
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  actorId: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
 // ─── Weekly Plan ──────────────────────────────────────────────────────────────
 
 export interface PlanMeal {

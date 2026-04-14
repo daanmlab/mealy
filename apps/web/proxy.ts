@@ -6,6 +6,7 @@ const PUBLIC_PATHS = ['/login', '/register'];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const secureCookie = request.nextUrl.protocol === 'https:';
 
   // NextAuth handles its own routes — pass through untouched.
   if (pathname.startsWith('/api/auth/')) {
@@ -15,17 +16,24 @@ export async function proxy(request: NextRequest) {
   // For proxied API requests: inject the raw session JWT as a Bearer token so
   // NestJS can validate it with the shared AUTH_SECRET.
   if (pathname.startsWith('/api/')) {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl) return NextResponse.next();
+
     const token = await getToken({
       req: request,
       secret: process.env.AUTH_SECRET,
+      secureCookie,
       raw: true,
     });
+
+    const headers = new Headers(request.headers);
     if (token) {
-      const headers = new Headers(request.headers);
       headers.set('Authorization', `Bearer ${token}`);
-      return NextResponse.next({ request: { headers } });
     }
-    return NextResponse.next();
+
+    // Rewrite to external API with auth header
+    const url = new URL(pathname + request.nextUrl.search, apiUrl);
+    return NextResponse.rewrite(url, { request: { headers } });
   }
 
   // Page route protection — redirect to /login if no session.
@@ -33,6 +41,7 @@ export async function proxy(request: NextRequest) {
   const sessionToken = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
+    secureCookie,
     raw: true,
   });
 
@@ -44,6 +53,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Run on all routes except static assets (includes /api/* now).
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)'],
+  // Run on all routes except static assets and public files.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest|json|txt|xml|woff|woff2|ttf)).*)'],
 };

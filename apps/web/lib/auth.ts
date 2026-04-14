@@ -1,5 +1,6 @@
 import NextAuth, { type NextAuthResult } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
 import { SignJWT, jwtVerify } from 'jose';
 import type { JWT } from 'next-auth/jwt';
 
@@ -32,7 +33,8 @@ async function upsertOAuthUser(input: {
   });
 
   if (!res.ok) {
-    throw new Error('OAuth user upsert failed');
+    const body = await res.text();
+    throw new Error(`OAuth user upsert failed (${res.status}): ${body}`);
   }
 
   return res.json() as Promise<DbUser>;
@@ -61,29 +63,20 @@ export const {
         return res.json() as Promise<{ id: string; email: string; name: string | null; avatarUrl: string | null; isAdmin: boolean }>;
       },
     }),
-    {
-      id: 'google',
-      name: 'Google',
-      type: 'oauth',
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID ?? '',
+      clientSecret: process.env.AUTH_GOOGLE_SECRET ?? '',
       issuer: 'https://accounts.google.com',
       authorization: {
         url: 'https://accounts.google.com/o/oauth2/v2/auth',
         params: { scope: 'openid email profile' },
       },
-      token: 'https://oauth2.googleapis.com/token',
-      userinfo: 'https://openidconnect.googleapis.com/v1/userinfo',
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      profile(profile) {
-        return {
-          id: profile.sub,
-          name: profile.name,
-          email: profile.email,
-          image: profile.picture,
-        };
-      },
-    },
+      token: { url: 'https://oauth2.googleapis.com/token' },
+      userinfo: { url: 'https://openidconnect.googleapis.com/v1/userinfo' },
+    }),
   ],
+  secret: process.env.AUTH_SECRET,
+  trustHost: true,
 
   callbacks: {
     async signIn({ user, account }) {
@@ -121,6 +114,7 @@ export const {
       if (user) {
         token.id = user.id;
         token.sub = user.id;
+        token.email = user.email;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
       }
       return token;

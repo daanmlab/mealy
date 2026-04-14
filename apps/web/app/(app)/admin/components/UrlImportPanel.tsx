@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { adminApi, API_BASE } from '@/lib/api';
+import { adminApi } from '@/lib/api';
+import { ImportSubStep } from '@mealy/types';
 
 type StepName = 'fetch' | 'extract' | 'verify' | 'group' | 'normalize' | 'canonicalize' | 'save';
 type StepStatus = 'pending' | 'running' | 'done' | 'skipped' | 'error';
@@ -12,6 +13,28 @@ interface Step {
   label: string;
   status: StepStatus;
   message: string;
+  subSteps: ImportSubStep[];
+}
+
+const SUBSTEP_LABELS: Record<string, string> = {
+  request: 'Requesting page',
+  capture: 'Extracting HTML',
+  browser: 'Using browser',
+  jsonld: 'Checking structured data',
+  prepare: 'Preparing for LLM',
+  llm: 'Calling LLM',
+  analyze: 'Analyzing',
+  fix: 'Applying fixes',
+  assign: 'Assigning groups',
+  catalog: 'Loading catalog',
+  match: 'Matching ingredients',
+  write: 'Saving to database',
+};
+
+const AI_SUBSTEPS = new Set(['llm', 'analyze', 'fix', 'match']);
+
+function isBrowserSubStep(ss: ImportSubStep): boolean {
+  return ss.name === 'browser';
 }
 
 interface ImportJob {
@@ -35,7 +58,7 @@ const STEP_DEFS: { name: StepName; label: string }[] = [
 ];
 
 function makeInitialSteps(): Step[] {
-  return STEP_DEFS.map(({ name, label }) => ({ name, label, status: 'pending', message: '' }));
+  return STEP_DEFS.map(({ name, label }) => ({ name, label, status: 'pending', message: '', subSteps: [] }));
 }
 
 function elapsed(from: Date): string {
@@ -56,7 +79,7 @@ function StepIcon({ status }: { status: StepStatus }) {
     );
   if (status === 'done')
     return (
-      <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <svg className="w-4 h-4 text-olive shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
       </svg>
     );
@@ -73,6 +96,31 @@ function StepIcon({ status }: { status: StepStatus }) {
   );
 }
 
+function SubStepIcon({ status }: { status: StepStatus }) {
+  if (status === 'running')
+    return (
+      <svg className="w-3 h-3 animate-spin text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      </svg>
+    );
+  if (status === 'done')
+    return (
+      <svg className="w-3 h-3 text-olive shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+    );
+  if (status === 'skipped')
+    return <span className="w-3 h-3 shrink-0 flex items-center justify-center text-gray-300 text-[10px]">—</span>;
+  if (status === 'error')
+    return (
+      <svg className="w-3 h-3 text-red-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    );
+  return null;
+}
+
 function JobStatusIcon({ status }: { status: JobStatus }) {
   if (status === 'queued' || status === 'running')
     return (
@@ -86,7 +134,7 @@ function JobStatusIcon({ status }: { status: JobStatus }) {
     );
   if (status === 'done')
     return (
-      <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <svg className="w-4 h-4 text-olive shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
       </svg>
     );
@@ -136,7 +184,7 @@ function JobRow({
     <div
       className={`border rounded-lg overflow-hidden text-sm ${
         job.status === 'error'   ? 'border-red-200'  :
-        job.status === 'done'    ? 'border-green-200' :
+        job.status === 'done'    ? 'border-olive-subtle' :
         job.status === 'running' ? 'border-blue-200'  :
         'border-gray-200'
       }`}
@@ -146,7 +194,7 @@ function JobRow({
         onClick={onToggle}
         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:brightness-95 transition-all ${
           job.status === 'error'   ? 'bg-red-50'   :
-          job.status === 'done'    ? 'bg-green-50'  :
+          job.status === 'done'    ? 'bg-olive-subtle'  :
           job.status === 'running' ? 'bg-blue-50'   :
           'bg-gray-50'
         }`}
@@ -154,7 +202,7 @@ function JobRow({
         <JobStatusIcon status={job.status} />
         <span className="flex-1 font-mono text-xs text-gray-700 truncate min-w-0">{shortUrl}</span>
         {job.status === 'done' && job.result && (
-          <span className="shrink-0 text-xs text-green-700 font-medium max-w-[160px] truncate">
+          <span className="shrink-0 text-xs text-olive font-medium max-w-[160px] truncate">
             &ldquo;{job.result.title}&rdquo;
           </span>
         )}
@@ -173,26 +221,55 @@ function JobRow({
       {job.expanded && (
         <div className="border-t border-gray-100 font-mono divide-y divide-gray-100">
           {job.steps.map((step) => (
-            <div
-              key={step.name}
-              className={`flex items-center gap-3 px-4 py-2 ${
-                step.status === 'running' ? 'bg-blue-50' :
-                step.status === 'error'   ? 'bg-red-50'  :
-                step.status === 'skipped' ? 'opacity-40' : ''
-              }`}
-            >
-              <StepIcon status={step.status} />
-              <span
-                className={`text-xs font-medium ${
-                  step.status === 'error' ? 'text-red-700' :
-                  step.status === 'done'  ? 'text-gray-800' : 'text-gray-500'
+            <div key={step.name}>
+              <div
+                className={`flex items-center gap-3 px-4 py-2 ${
+                  step.status === 'running' ? 'bg-blue-50' :
+                  step.status === 'error'   ? 'bg-red-50'  :
+                  step.status === 'skipped' ? 'opacity-40' : ''
                 }`}
               >
-                {step.label}
-              </span>
-              {step.message && (
-                <span className="ml-auto text-xs text-gray-400 truncate max-w-[50%]">{step.message}</span>
-              )}
+                <StepIcon status={step.status} />
+                <span
+                  className={`text-xs font-medium ${
+                    step.status === 'error' ? 'text-red-700' :
+                    step.status === 'done'  ? 'text-gray-800' : 'text-gray-500'
+                  }`}
+                >
+                  {step.label}
+                </span>
+                {step.message && (
+                  <span className="ml-auto text-xs text-gray-400 truncate max-w-[50%]">{step.message}</span>
+                )}
+              </div>
+              {(step.status === 'running' || step.status === 'error') &&
+                step.subSteps.filter((ss) => ss.status !== 'pending').map((ss) => (
+                  <div
+                    key={ss.name}
+                    className={`flex items-center gap-2 px-4 py-1 pl-10 ${
+                      step.status === 'running' ? 'bg-blue-50' : 'bg-red-50'
+                    }`}
+                  >
+                    <SubStepIcon status={ss.status} />
+                    <span className="text-xs text-gray-400">
+                      {SUBSTEP_LABELS[ss.name] ?? ss.name}
+                    </span>
+                    {AI_SUBSTEPS.has(ss.name) && (
+                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-500 leading-none">
+                        ✦ AI
+                      </span>
+                    )}
+                    {isBrowserSubStep(ss) && (
+                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium bg-sky-100 text-sky-500 leading-none">
+                        ◎ Browser
+                      </span>
+                    )}
+                    {ss.message && (
+                      <span className="ml-auto text-xs text-gray-300 truncate max-w-[40%]">{ss.message}</span>
+                    )}
+                  </div>
+                ))
+              }
             </div>
           ))}
         </div>
@@ -211,7 +288,7 @@ function deserializeJobs(raw: string): ImportJob[] {
 }
 
 export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
-  const [url, setUrl] = useState('');
+  const [urlsText, setUrlsText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<ImportJob[]>([]);
@@ -223,77 +300,62 @@ export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
     if (jobs.length > 0) localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
   }, [jobs]);
 
-  const updateJob = useCallback((jobId: string, updater: (job: ImportJob) => ImportJob) => {
-    setJobs((prev) => prev.map((j) => (j.jobId === jobId ? updater(j) : j)));
+  const pollIntervals = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+  const lastFingerprints = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    const intervals = pollIntervals.current;
+    return () => {
+      for (const id of intervals.values()) clearInterval(id);
+    };
   }, []);
 
-  const openJobStream = useCallback(async (jobId: string) => {
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/recipes/import-url/stream?jobId=${encodeURIComponent(jobId)}`,
-        {},
-      );
+  const pollJobStatus = useCallback((jobId: string) => {
+    const existing = pollIntervals.current.get(jobId);
+    if (existing) clearInterval(existing);
 
-      if (!res.ok || !res.body) {
-        updateJob(jobId, (j) => ({ ...j, status: 'error' }));
-        return;
-      }
+    const id = setInterval(async () => {
+      try {
+        const snapshot = await adminApi.getImportJobStatus(jobId);
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+        const fingerprint = `${snapshot.jobStatus}|${snapshot.steps.map((s) =>
+          `${s.status}:${s.message}:${s.subSteps.map((ss) => `${ss.name}:${ss.status}:${ss.message}`).join(',')}`
+        ).join('|')}`;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        // Split on SSE event boundaries (blank line)
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() ?? '';
-
-        for (const part of parts) {
-          const dataLine = part.split('\n').find((l) => l.startsWith('data:'));
-          if (!dataLine) continue;
-          const json = dataLine.replace(/^data:\s*/, '').trim();
-          if (!json) continue;
-          try {
-            const event = JSON.parse(json) as {
-              step: StepName;
-              status: 'running' | 'done' | 'skipped' | 'error';
-              message: string;
-              recipe?: { id: string; title: string };
+        if (fingerprint !== lastFingerprints.current.get(jobId)) {
+          lastFingerprints.current.set(jobId, fingerprint);
+          setJobs((prev) => prev.map((j) => {
+            if (j.jobId !== jobId) return j;
+            return {
+              ...j,
+              status: snapshot.jobStatus,
+              steps: j.steps.map((s) => {
+                const snap = snapshot.steps.find((st) => st.step === s.name);
+                if (!snap) return s;
+                return { ...s, status: snap.status, message: snap.message, subSteps: snap.subSteps };
+              }),
+              result: snapshot.result ?? j.result,
+              expanded: snapshot.jobStatus === 'done' ? false : j.expanded,
             };
-
-            updateJob(jobId, (job) => {
-              const newSteps = job.steps.map((s) =>
-                s.name === event.step ? { ...s, status: event.status, message: event.message } : s,
-              );
-              const newStatus: JobStatus =
-                event.status === 'error'                          ? 'error'   :
-                event.step === 'save' && event.status === 'done' ? 'done'    :
-                                                                   'running';
-              return {
-                ...job,
-                steps: newSteps,
-                status: newStatus,
-                result: event.recipe ?? job.result,
-                expanded: newStatus === 'done' ? false : job.expanded,
-              };
-            });
-
-            if (event.step === 'save' && event.status === 'done') {
-              onImportedRef.current?.();
-            }
-          } catch {
-            /* ignore malformed lines */
-          }
+          }));
         }
+
+        if (snapshot.jobStatus === 'done' || snapshot.jobStatus === 'error') {
+          clearInterval(id);
+          pollIntervals.current.delete(jobId);
+          lastFingerprints.current.delete(jobId);
+          if (snapshot.jobStatus === 'done') onImportedRef.current?.();
+        }
+      } catch {
+        clearInterval(id);
+        pollIntervals.current.delete(jobId);
+        lastFingerprints.current.delete(jobId);
+        setJobs((prev) => prev.map((j) => j.jobId === jobId ? { ...j, status: 'error' } : j));
       }
-    } catch {
-      updateJob(jobId, (j) => ({ ...j, status: 'error' }));
-    }
-  }, [updateJob]);
+    }, 500);
+
+    pollIntervals.current.set(jobId, id);
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -303,7 +365,7 @@ export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
       setJobs(restored);
       for (const job of restored) {
         if (job.status === 'queued' || job.status === 'running') {
-          void openJobStream(job.jobId);
+          pollJobStatus(job.jobId);
         }
       }
     } catch { /* ignore corrupt storage */ }
@@ -312,34 +374,51 @@ export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!url || submitting) return;
+    if (!urlsText.trim() || submitting) return;
+
+    const urls = urlsText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    const invalid = urls.filter((u) => {
+      try { new URL(u); return false; } catch { return true; }
+    });
+
+    if (invalid.length > 0) {
+      setSubmitError(`Invalid URL${invalid.length > 1 ? 's' : ''}: ${invalid.join(', ')}`);
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError(null);
 
-    try {
-      const { jobId } = await adminApi.importFromUrl(url);
-      const submittedUrl = url;
+    const errors: string[] = [];
+    const started: ImportJob[] = [];
 
-      setJobs((prev) => [
-        {
+    for (const u of urls) {
+      try {
+        const { jobId } = await adminApi.importFromUrl(u);
+        const job: ImportJob = {
           jobId,
-          url: submittedUrl,
+          url: u,
           status: 'queued',
           steps: makeInitialSteps(),
           startedAt: new Date(),
-          expanded: true,
-        },
-        ...prev,
-      ]);
-      setUrl('');
-
-      void openJobStream(jobId);
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to start import');
-    } finally {
-      setSubmitting(false);
+          expanded: urls.length === 1,
+        };
+        started.push(job);
+        setJobs((prev) => [job, ...prev]);
+        pollJobStatus(jobId);
+      } catch (err) {
+        errors.push(`${u}: ${err instanceof Error ? err.message : 'Failed to start'}`);
+      }
     }
+
+    if (started.length > 0) setUrlsText('');
+    if (errors.length > 0) setSubmitError(errors.join('\n'));
+
+    setSubmitting(false);
   }
 
   function toggleExpanded(jobId: string) {
@@ -358,30 +437,30 @@ export function UrlImportPanel({ onImported }: { onImported?: () => void }) {
     <div className="space-y-4">
       <form onSubmit={handleSubmit} className="space-y-3">
         <label className="block text-sm font-medium text-gray-700" htmlFor="url-input">
-          Recipe URL
+          Recipe URL(s)
         </label>
-        <div className="flex gap-2">
-          <input
-            id="url-input"
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com/recipe/..."
-            required
-            disabled={submitting}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
-          />
+        <textarea
+          id="url-input"
+          value={urlsText}
+          onChange={(e) => setUrlsText(e.target.value)}
+          placeholder={"https://example.com/recipe/...\nhttps://example.com/another-recipe/..."}
+          required
+          rows={3}
+          disabled={submitting}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 resize-y font-mono"
+        />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-gray-400">
+            One URL per line. Imported recipes are <strong>inactive</strong> by default — toggle active after review.
+          </p>
           <button
             type="submit"
-            disabled={submitting || !url}
-            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+            disabled={submitting || !urlsText.trim()}
+            className="shrink-0 px-4 py-2 bg-olive text-white text-sm font-medium rounded-lg hover:bg-olive-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
           >
             {submitting ? 'Starting…' : 'Import'}
           </button>
         </div>
-        <p className="text-xs text-gray-400">
-          Imported recipes are <strong>inactive</strong> by default — toggle active after review.
-        </p>
         {submitError && (
           <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             ✗ {submitError}

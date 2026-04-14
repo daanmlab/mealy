@@ -132,7 +132,7 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
 
           <div className="flex flex-wrap gap-1.5 mt-3">
             {recipe.tags.map((tag) => (
-              <span key={tag.tag.slug} className="px-2 py-0.5 bg-green-50 text-green-700 text-xs font-medium rounded-full capitalize">
+              <span key={tag.tag.slug} className="px-2 py-0.5 bg-olive-subtle text-olive text-xs font-medium rounded-full capitalize">
                 {tag.tag.slug.replace('_', '-')}
               </span>
             ))}
@@ -180,7 +180,7 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
               .sort((a, b) => a.order - b.order)
               .map((step) => (
                 <li key={step.order} className="flex gap-4">
-                  <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold flex-shrink-0 flex items-center justify-center">
+                  <span className="w-6 h-6 rounded-full bg-olive-subtle text-olive text-xs font-bold flex-shrink-0 flex items-center justify-center">
                     {step.order}
                   </span>
                   <p className="text-sm text-gray-700 leading-relaxed pt-0.5">{step.text}</p>

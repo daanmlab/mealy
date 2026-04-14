@@ -22,7 +22,8 @@
     "strictBindCallApply": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@mealy/types": ["../../packages/types/src/index.ts"]
+      "@mealy/types": ["../../packages/types/src/index.ts"],
+      "@mealy/scraper": ["../../apps/scraper/src/lib.ts"]
     }
   }
 }
