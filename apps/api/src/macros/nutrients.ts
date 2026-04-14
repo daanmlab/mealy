@@ -1,19 +1,33 @@
 import axios from 'axios';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import Redis from 'ioredis';
+import type { PrismaClient } from '@prisma/client';
+import type Redis from 'ioredis';
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({
-    connectionString: process.env['DATABASE_URL'],
-  }),
-});
-const redis = process.env['REDIS_URL']
-  ? new Redis(process.env['REDIS_URL'], {
-      maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
-    })
-  : null;
+let prismaClient: PrismaClient | null = null;
+let redis: Redis | null = null;
+
+export function configureNutrientsDependencies(dependencies: {
+  prisma: PrismaClient;
+  redis?: Redis | null;
+}) {
+  prismaClient = dependencies.prisma;
+  redis = dependencies.redis ?? null;
+}
+
+function getPrismaClient(): PrismaClient {
+  if (!prismaClient) {
+    throw new Error(
+      'Nutrient macros dependencies have not been configured. Provide the shared PrismaService client and Redis client before using this module.'
+    );
+  }
+
+  return prismaClient;
+}
+
+const prisma = new Proxy({} as PrismaClient, {
+  get(_target, property, receiver) {
+    return Reflect.get(getPrismaClient() as object, property, receiver);
+  },
+}) as PrismaClient;
 const NUTRIENT_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
 // const db = prisma as unknown as {
 //   ingredientNutrientLink: {
