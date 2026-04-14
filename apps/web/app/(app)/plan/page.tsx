@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ChevronLeft,
   ChevronRight,
@@ -24,18 +25,6 @@ import { plansApi, favoritesApi, type Plan, type PlanMeal, type FavoriteRecipe }
 import { MonthlyCalendar } from '@/components/MonthlyCalendar';
 import { useWeekStartDay } from '@/hooks/useWeekStartDay';
 import SwapPickerModal from '@/components/SwapPickerModal';
-
-const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-const DAY_LABELS: Record<string, string> = {
-  monday: 'Mon',
-  tuesday: 'Tue',
-  wednesday: 'Wed',
-  thursday: 'Thu',
-  friday: 'Fri',
-  saturday: 'Sat',
-  sunday: 'Sun',
-};
 
 const DAY_LABELS_FULL: Record<string, string> = {
   monday: 'Monday',
@@ -123,7 +112,7 @@ function RecipeImage({
 }) {
   if (imageUrl) {
     return (
-      <img src={imageUrl} alt={title} className={`w-full h-full object-cover block ${className}`} />
+      <Image src={imageUrl} alt={title} className={`w-full h-full object-cover block ${className}`} />
     );
   }
 
@@ -305,7 +294,6 @@ export default function PlanPage() {
   }
 
   const isConfirmed = plan?.status === 'confirmed';
-  const planDays = new Set(plan?.meals.map((m) => m.day) ?? []);
 
   const weekStart = getWeekStart(weekOffset);
   const weekEnd = new Date(weekStart);
