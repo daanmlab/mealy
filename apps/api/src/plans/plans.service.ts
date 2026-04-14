@@ -74,6 +74,9 @@ export class PlansService {
     );
 
     if (selected.length < user.mealsPerWeek) {
+      const activeRecipeCount = await this.prisma.recipe.count({
+        where: { isActive: true },
+      });
       throw new BadRequestException(
         'Not enough recipes available to create a plan',
       );

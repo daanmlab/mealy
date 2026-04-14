@@ -19,6 +19,15 @@ import { CreatePlanDto, SwapMealDto } from './plans.dto';
 export class PlansController {
   constructor(private readonly plans: PlansService) {}
 
+  @Get()
+  getRoot(
+    @CurrentUser() user: User,
+    @Query('weekStart') weekStart?: string,
+  ) {
+    const weekStartDate = weekStart ? new Date(weekStart) : undefined;
+    return this.plans.getCurrentPlan(user.id, weekStartDate);
+  }
+
   @Post()
   create(@CurrentUser() user: User, @Body() dto: CreatePlanDto) {
     const weekStart = dto.weekStart ? new Date(dto.weekStart) : undefined;

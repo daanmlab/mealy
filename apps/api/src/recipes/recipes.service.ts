@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { CreateRecipeDto, RecipeQueryDto } from './recipes.dto';
+import { getNutrients } from '../macros/nutrients';
 
 @Injectable()
 export class RecipesService {
@@ -15,7 +16,16 @@ export class RecipesService {
     tags: { include: { tag: true } },
     ingredients: {
       include: {
-        ingredient: { include: { category: true } },
+        ingredient: {
+          include: {
+            category: true,
+            nutrientLinks: {
+              include: { nutrient: true },
+              orderBy: { createdAt: 'desc' as const },
+              take: 1,
+            },
+          },
+        },
         unit: true,
         group: true,
       },
@@ -24,7 +34,7 @@ export class RecipesService {
   };
 
   async findAll(query: RecipeQueryDto) {
-    return this.prisma.recipe.findMany({
+    const recipes = await this.prisma.recipe.findMany({
       where: {
         isActive: true,
         ...(query.maxCookTime && {
@@ -38,6 +48,8 @@ export class RecipesService {
       take: query.limit ?? 50,
       orderBy: { title: 'asc' },
     });
+
+    return this.ensureRecipesNutrients(recipes);
   }
 
   async findById(id: string) {
@@ -46,7 +58,11 @@ export class RecipesService {
       include: this.include,
     });
     if (!recipe) throw new NotFoundException(`Recipe ${id} not found`);
-    return recipe;
+    await this.ensureRecipeNutrients(recipe);
+    return this.prisma.recipe.findUniqueOrThrow({
+      where: { id },
+      include: this.include,
+    });
   }
 
   async findByTagSlugs(
@@ -54,7 +70,7 @@ export class RecipesService {
     excludeIds: string[] = [],
     limit = 20,
   ) {
-    return this.prisma.recipe.findMany({
+    const recipes = await this.prisma.recipe.findMany({
       where: {
         isActive: true,
         tags: { some: { tag: { slug: { in: tagSlugs } } } },
@@ -63,6 +79,8 @@ export class RecipesService {
       include: this.include,
       take: limit,
     });
+
+    return this.ensureRecipesNutrients(recipes);
   }
 
   async findSuggestions(
@@ -93,13 +111,18 @@ export class RecipesService {
       orderBy: { id: 'asc' },
     });
 
+    const hydratedResults = await this.ensureRecipesNutrients(results);
+
     // Fisher-Yates shuffle for varied suggestions across calls
-    for (let i = results.length - 1; i > 0; i--) {
+    for (let i = hydratedResults.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [results[i], results[j]] = [results[j], results[i]];
+      [hydratedResults[i], hydratedResults[j]] = [
+        hydratedResults[j],
+        hydratedResults[i],
+      ];
     }
 
-    return results.slice(0, limit);
+    return hydratedResults.slice(0, limit);
   }
 
   async create(dto: CreateRecipeDto, isActive = true) {
@@ -134,7 +157,11 @@ export class RecipesService {
       }),
     );
 
-    return this.prisma.$transaction(async (tx) => {
+    const nutrientIngredientNames = [
+      ...new Set(resolvedIngredients.map((i) => i.resolvedIngredient.name)),
+    ];
+
+    const recipe = await this.prisma.$transaction(async (tx) => {
       // 1. Upsert Unit records for all unique non-"unit" symbols
       // Use resolvedIngredients (post-LLM) so inferred unit symbols are included
       const uniqueUnitSymbols = [
@@ -234,7 +261,7 @@ export class RecipesService {
             });
           }),
       );
-
+      
       // 6. Create the Recipe with RecipeTag join rows
       const recipe = await tx.recipe.create({
         data: {
@@ -273,23 +300,87 @@ export class RecipesService {
         groupRecords.map((g) => [g.name, g]),
       );
 
+
       // 8. Create RecipeIngredient rows (unitId is null for countable/unit-less items)
-      await tx.recipeIngredient.createMany({
-        data: uniqueIngredients.map((ing) => ({
-          recipeId: recipe.id,
-          ingredientId: ing.ingredientId,
-          unitId: unitBySymbol[ing.unitSymbol]?.id ?? null,
-          groupId: ing.groupName
-            ? (groupByName[ing.groupName]?.id ?? null)
-            : null,
-          amount: ing.amount,
-        })),
-      });
+      await Promise.all(
+        uniqueIngredients.map((ing) =>
+          tx.recipeIngredient.create({
+            data: {
+              recipeId: recipe.id,
+              ingredientId: ing.ingredientId,
+              unitId: unitBySymbol[ing.unitSymbol]?.id ?? null,
+              groupId: ing.groupName
+                ? (groupByName[ing.groupName]?.id ?? null)
+                : null,
+              amount: ing.amount,
+            },
+          }) as any,
+        ),
+      );
 
       return tx.recipe.findUniqueOrThrow({
         where: { id: recipe.id },
         include: this.include,
       });
     });
+
+    await this.catchIngredientNutrients(nutrientIngredientNames);
+
+    return this.prisma.recipe.findUniqueOrThrow({
+      where: { id: recipe.id },
+      include: this.include,
+    });
+  }
+
+  private async ensureRecipeNutrients(recipe: {
+    ingredients: { ingredient: { name: string; nutrientLinks?: unknown[] } }[];
+  }) {
+    const missingIngredientNames = recipe.ingredients
+      .filter((ingredient) => !ingredient.ingredient.nutrientLinks?.length)
+      .map((ingredient) => ingredient.ingredient.name);
+
+    if (missingIngredientNames.length === 0) return;
+
+    await this.catchIngredientNutrients(missingIngredientNames);
+  }
+
+  private async ensureRecipesNutrients<
+    T extends {
+      id: string;
+      ingredients: { ingredient: { name: string; nutrientLinks?: unknown[] } }[];
+    },
+  >(recipes: T[]): Promise<T[]> {
+    if (recipes.length === 0) return recipes;
+
+    const missingIngredientNames = [
+      ...new Set(
+        recipes
+          .flatMap((recipe) => recipe.ingredients)
+          .filter((ingredient) => !ingredient.ingredient.nutrientLinks?.length)
+          .map((ingredient) => ingredient.ingredient.name),
+      ),
+    ];
+
+    if (missingIngredientNames.length === 0) return recipes;
+
+    await this.catchIngredientNutrients(missingIngredientNames);
+
+    const refreshedRecipes = await this.prisma.recipe.findMany({
+      where: { id: { in: recipes.map((recipe) => recipe.id) } },
+      include: this.include,
+    });
+
+    const refreshedById = new Map(
+      refreshedRecipes.map((recipe) => [recipe.id, recipe]),
+    );
+
+    return recipes.map(
+      (recipe) => (refreshedById.get(recipe.id) as T | undefined) ?? recipe,
+    );
+  }
+
+  private async catchIngredientNutrients(names: string[]) {
+    await Promise.all(names.map((name) => getNutrients(name)));
   }
 }
+

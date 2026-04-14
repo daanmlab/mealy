@@ -74,6 +74,29 @@ export interface Ingredient {
   id: string;
   name: string;
   category: IngredientCategory | null;
+  nutrientLinks?: IngredientNutrientLink[];
+}
+
+export interface IngredientNutrient {
+  id: string;
+  calories: number | null;
+  protein: number | null;
+  total_fats: number | null;
+  sat_fats: number | null;
+  trans_fats: number | null;
+  carbs: number | null;
+  cholesterol: number | null;
+  Fiber: number | null;
+  Sugar: number | null;
+  createdAt: string;
+}
+
+export interface IngredientNutrientLink {
+  id: string;
+  ingredientId: string;
+  nutrientId: string;
+  createdAt: string;
+  nutrient: IngredientNutrient;
 }
 
 export interface IngredientGroup {

@@ -134,11 +134,54 @@ model User {
   @@map("users")
 }
 
+model IngredientNutrients {
+  id        String @id @default(uuid())
+  ingredientName  String
+  fdcId       Int
+
+  calories    Float?
+  protein     Float?
+
+  total_fats  Float?
+  sat_fats    Float?
+  trans_fats  Float?
+  carbs       Float?
+
+  cholesterol Float?
+  Fiber       Float?
+  Sugar       Float?
+
+  microNutrients Json?
+  links IngredientNutrientLink[]
+  createdAt DateTime @default(now())
+}
+
+model IngredientNutrientLink {
+  id String @id @default(cuid())
+
+  ingredientId String
+  nutrientId   String
+
+  fdcId Int?
+  rawJson Json
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  nutrient   IngredientNutrients @relation(fields: [nutrientId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([ingredientId, nutrientId])
+  @@index([ingredientId])
+  @@index([nutrientId])
+  @@map("ingredient_nutrient_links")
+}
+
 model Ingredient {
   id         String              @id @default(cuid())
   name       String              @unique
   categoryId String?
   category   IngredientCategory? @relation(fields: [categoryId], references: [id])
+  nutrientLinks IngredientNutrientLink[]
 
   recipeIngredients RecipeIngredient[]
   groceryListItems  GroceryListItem[]
