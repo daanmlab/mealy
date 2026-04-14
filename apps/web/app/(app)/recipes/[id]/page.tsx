@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { recipesApi, favoritesApi, type Recipe } from '@/lib/api';
@@ -11,7 +11,6 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
-  const loggedRecipeIdRef = useRef<string | null>(null);
 
   const scaledMacrosForIngredient = (ri: Recipe['ingredients'][number]) => {
     const nutrient = ri.ingredient.nutrientLinks?.[0]?.nutrient;
@@ -38,8 +37,8 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
           ? Number((nutrient.protein * scale).toFixed(2))
           : null,
       fat:
-        nutrient.total_fats != null
-          ? Number((nutrient.total_fats * scale).toFixed(2))
+        nutrient.totalFats != null
+          ? Number((nutrient.totalFats * scale).toFixed(2))
           : null,
       carbs:
         nutrient.carbs != null
@@ -52,27 +51,6 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
     recipesApi.get(id).then((r) => { setRecipe(r); setLoading(false); });
     favoritesApi.list().then((favs) => setIsFavorite(favs.some((f) => f.recipeId === id)));
   }, [id]);
-
-  useEffect(() => {
-    if (!recipe) return;
-
-    if (loggedRecipeIdRef.current === recipe.id) return;
-    loggedRecipeIdRef.current = recipe.id;
-
-    const nutrientsView = recipe.ingredients.map((ri) => ({
-      ingredient: ri.ingredient.name,
-      amount: ri.amount,
-      unit: ri?.unit?.symbol ?? '',
-      macros: scaledMacrosForIngredient(ri),
-    }));
-
-    console.log('Recipe summary', {
-      recipeId: recipe.id,
-      title: recipe.title,
-      nutrients: nutrientsView,
-    });
-    console.groupEnd();
-  }, [recipe]);
 
   async function toggleFavorite() {
     if (isFavorite) {
@@ -165,7 +143,7 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
                   <span className="text-gray-400 text-right">
                     {m.calories == null
                       ? 'n/a'
-                      : `${m.calories.toFixed(2)} kcal • P ${m.protein?.toFixed(2) ?? '0.00'}g • F ${m.fat?.toFixed(2) ?? '0.00'}g • C ${m.carbs?.toFixed(2) ?? '0.00'}g`}
+                      : `${m.calories.toFixed(2)} kcal • P ${m.protein == null ? 'n/a' : `${m.protein.toFixed(2)}g`} • F ${m.fat == null ? 'n/a' : `${m.fat.toFixed(2)}g`} • C ${m.carbs == null ? 'n/a' : `${m.carbs.toFixed(2)}g`}`}
                   </span>
                 </li>
               );

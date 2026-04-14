@@ -81,13 +81,13 @@ export interface IngredientNutrient {
   id: string;
   calories: number | null;
   protein: number | null;
-  total_fats: number | null;
-  sat_fats: number | null;
-  trans_fats: number | null;
+  totalFats: number | null;
+  satFats: number | null;
+  transFats: number | null;
   carbs: number | null;
   cholesterol: number | null;
-  Fiber: number | null;
-  Sugar: number | null;
+  fiber: number | null;
+  sugar: number | null;
   createdAt: string;
 }
 

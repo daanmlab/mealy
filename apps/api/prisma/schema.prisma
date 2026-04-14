@@ -142,18 +142,20 @@ model IngredientNutrients {
   calories    Float?
   protein     Float?
 
-  total_fats  Float?
-  sat_fats    Float?
-  trans_fats  Float?
+  totalFats   Float? @map("total_fats")
+  satFats     Float? @map("sat_fats")
+  transFats   Float? @map("trans_fats")
   carbs       Float?
 
   cholesterol Float?
-  Fiber       Float?
-  Sugar       Float?
+  fiber       Float? @map("Fiber")
+  sugar       Float? @map("Sugar")
 
   microNutrients Json?
   links IngredientNutrientLink[]
   createdAt DateTime @default(now())
+
+  @@map("IngredientNutrients")
 }
 
 model IngredientNutrientLink {
