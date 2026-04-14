@@ -250,7 +250,7 @@ export async function getNutrients(ingredientName: string) {
     while (pendingQueries.length > 0) {
       const query = pendingQueries.shift()!.trim();
       if (!query) continue;
-      const { data } = await axios.get<UsdaSearchResponse>(
+      const response = await axios.get<UsdaSearchResponse>(
         'https://api.nal.usda.gov/fdc/v1/foods/search',
         {
           params: {
@@ -259,6 +259,7 @@ export async function getNutrients(ingredientName: string) {
           },
         },
       );
+      const data: UsdaSearchResponse = response.data;
       const candidates = (data.foods ?? []).slice(0, 15);
       if (candidates.length === 0) continue;
 
