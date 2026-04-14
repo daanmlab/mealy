@@ -261,7 +261,7 @@ export class RecipesService {
             });
           }),
       );
-      
+
       // 6. Create the Recipe with RecipeTag join rows
       const recipe = await tx.recipe.create({
         data: {
@@ -300,7 +300,6 @@ export class RecipesService {
         groupRecords.map((g) => [g.name, g]),
       );
 
-
       // 8. Create RecipeIngredient rows (unitId is null for countable/unit-less items)
       await Promise.all(
         uniqueIngredients.map((ing) =>
@@ -314,7 +313,7 @@ export class RecipesService {
                 : null,
               amount: ing.amount,
             },
-          }) as any,
+          }),
         ),
       );
 
@@ -347,7 +346,9 @@ export class RecipesService {
   private async ensureRecipesNutrients<
     T extends {
       id: string;
-      ingredients: { ingredient: { name: string; nutrientLinks?: unknown[] } }[];
+      ingredients: {
+        ingredient: { name: string; nutrientLinks?: unknown[] };
+      }[];
     },
   >(recipes: T[]): Promise<T[]> {
     if (recipes.length === 0) return recipes;
@@ -383,4 +384,3 @@ export class RecipesService {
     await Promise.all(names.map((name) => getNutrients(name)));
   }
 }
-

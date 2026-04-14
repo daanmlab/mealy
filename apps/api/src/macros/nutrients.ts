@@ -17,17 +17,14 @@ const redis = process.env['REDIS_URL']
 const NUTRIENT_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
 const db = prisma as unknown as {
   ingredientNutrientLink: {
-    findFirst: (args: unknown) => Promise<
-      | {
-          nutrient?: {
-            calories?: number | null;
-            protein?: number | null;
-            total_fats?: number | null;
-            carbs?: number | null;
-          };
-        }
-      | null
-    >;
+    findFirst: (args: unknown) => Promise<{
+      nutrient?: {
+        calories?: number | null;
+        protein?: number | null;
+        total_fats?: number | null;
+        carbs?: number | null;
+      };
+    } | null>;
   };
   ingredientNutrients: {
     create: (args: unknown) => Promise<unknown>;
@@ -56,11 +53,19 @@ type UsdaFoodCandidate = {
   foodNutrients?: UsdaNutrient[];
 };
 
+type UsdaSearchResponse = {
+  foods?: UsdaFoodCandidate[];
+};
+
 function roundToTwo(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function extractNutrient(nutrients: UsdaNutrient[], name: string, preferredUnit?: string,): UsdaNutrient | undefined {
+function extractNutrient(
+  nutrients: UsdaNutrient[],
+  name: string,
+  preferredUnit?: string,
+): UsdaNutrient | undefined {
   const lowerName = name.toLowerCase();
   const lowerUnit = preferredUnit?.toLowerCase();
 
@@ -73,15 +78,19 @@ function extractNutrient(nutrients: UsdaNutrient[], name: string, preferredUnit?
     if (preferred) return preferred;
   }
 
-  return nutrients.find((n) => (n.nutrientName ?? '').toLowerCase().includes(lowerName));
+  return nutrients.find((n) =>
+    (n.nutrientName ?? '').toLowerCase().includes(lowerName),
+  );
 }
 
 function nutrientCacheKey(ingredientName: string) {
   return `nutrients:${ingredientName.trim().toLowerCase()}`;
 }
 
-  // checks if nutrients are already cached
-async function getCachedNutrients(ingredientName: string,): Promise<MacroResult | null> {
+// checks if nutrients are already cached
+async function getCachedNutrients(
+  ingredientName: string,
+): Promise<MacroResult | null> {
   if (!redis) return null;
   try {
     const raw = await redis.get(nutrientCacheKey(ingredientName));
@@ -124,7 +133,10 @@ async function setCachedNutrients(
   }
 }
 
-function chooseUsdaFoodCandidate(ingredientName: string,foods: UsdaFoodCandidate[],): { candidate: UsdaFoodCandidate; candidateIndex: number } {
+function chooseUsdaFoodCandidate(
+  ingredientName: string,
+  foods: UsdaFoodCandidate[],
+): { candidate: UsdaFoodCandidate; candidateIndex: number } {
   const normalizedIngredient = ingredientName.trim().toLowerCase();
   const ingredientTokens = normalizedIngredient
     .replace(/[^a-z0-9\s]/g, ' ')
@@ -238,7 +250,7 @@ export async function getNutrients(ingredientName: string) {
     while (pendingQueries.length > 0) {
       const query = pendingQueries.shift()!.trim();
       if (!query) continue;
-      const { data } = await axios.get(
+      const { data } = await axios.get<UsdaSearchResponse>(
         'https://api.nal.usda.gov/fdc/v1/foods/search',
         {
           params: {
@@ -247,7 +259,7 @@ export async function getNutrients(ingredientName: string) {
           },
         },
       );
-      const candidates = (data.foods ?? []).slice(0, 15) as UsdaFoodCandidate[];
+      const candidates = (data.foods ?? []).slice(0, 15);
       if (candidates.length === 0) continue;
 
       const selection = chooseUsdaFoodCandidate(normalizedName, candidates);
