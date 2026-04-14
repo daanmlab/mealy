@@ -15,21 +15,21 @@ const redis = process.env['REDIS_URL']
     })
   : null;
 const NUTRIENT_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
-const db = prisma as unknown as {
-  ingredientNutrientLink: {
-    findFirst: (args: unknown) => Promise<{
-      nutrient?: {
-        calories?: number | null;
-        protein?: number | null;
-        total_fats?: number | null;
-        carbs?: number | null;
-      };
-    } | null>;
-  };
-  ingredientNutrients: {
-    create: (args: unknown) => Promise<unknown>;
-  };
-};
+// const db = prisma as unknown as {
+//   ingredientNutrientLink: {
+//     findFirst: (args: unknown) => Promise<{
+//       nutrient?: {
+//         calories?: number | null;
+//         protein?: number | null;
+//         total_fats?: number | null;
+//         carbs?: number | null;
+//       };
+//     } | null>;
+//   };
+//   ingredientNutrients: {
+//     create: (args: unknown) => Promise<unknown>;
+//   };
+// };
 
 type MacroResult = {
   calories: number;
@@ -218,7 +218,7 @@ export async function getNutrients(ingredientName: string) {
     let ingredientId = ingredient?.id;
 
     if (ingredient) {
-      const existingLink = await db.ingredientNutrientLink.findFirst({
+      const existingLink = await prisma.ingredientNutrientLink.findFirst({
         where: { ingredientId: ingredient.id },
         include: { nutrient: true },
         orderBy: { createdAt: 'desc' },
@@ -347,8 +347,10 @@ export async function getNutrients(ingredientName: string) {
       });
       ingredientId = ing.id;
     }
-
-    await db.ingredientNutrients.create({
+    if (typeof food.fdcId !== 'number') {
+      return null; // or throw
+    }
+    await prisma.ingredientNutrients.create({
       data: {
         ingredientName: normalizedName,
         fdcId: food.fdcId,
