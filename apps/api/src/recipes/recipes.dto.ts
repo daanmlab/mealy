@@ -10,6 +10,7 @@ import {
   IsNumber,
   IsPositive,
   IsUrl,
+  IsBoolean,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
@@ -97,4 +98,8 @@ export class CreateRecipeDto {
   @ValidateNested({ each: true })
   @Type(() => CreateRecipeIngredientDto)
   ingredients!: CreateRecipeIngredientDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
 }

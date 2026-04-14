@@ -33,7 +33,7 @@ export class AdminController {
 
   @Post('recipes/import-url')
   startImportJob(@Body() dto: ImportUrlDto) {
-    return this.adminService.startImportJob(dto.url);
+    return this.adminService.startImportJob(dto.url, dto.force);
   }
 
   @Get('recipes/import-url/status')
@@ -41,9 +41,14 @@ export class AdminController {
     return this.adminService.getJobSnapshot(jobId);
   }
 
+  @Post('recipes/import-url/resume')
+  resumeImportJob(@Query('jobId') jobId: string, @CurrentUser() user: User) {
+    return this.adminService.resumeImportJob(jobId, user.id);
+  }
+
   @Post('recipes')
   createRecipe(@Body() dto: CreateRecipeDto, @CurrentUser() user: User) {
-    return this.adminService.createRecipe(dto, user.id);
+    return this.adminService.createRecipe(dto, user.id, dto.force ?? false);
   }
 
   @Patch('recipes/:id')

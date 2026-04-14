@@ -18,6 +18,10 @@ export class ImportUrlDto {
   @IsUrl()
   @IsNotEmpty()
   url!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
 }
 
 export class UpdateRecipeDto {

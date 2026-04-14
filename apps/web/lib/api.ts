@@ -151,8 +151,7 @@ export const recipesApi = {
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
 export const plansApi = {
-  create: (weekStart?: string) =>
-    api.post<Plan>('/plans', weekStart ? { weekStart } : {}),
+  create: (weekStart?: string) => api.post<Plan>('/plans', weekStart ? { weekStart } : {}),
   current: (weekStart?: string) =>
     api.get<Plan | null>(`/plans/current${weekStart ? `?weekStart=${weekStart}` : ''}`),
   get: (id: string) => api.get<Plan>(`/plans/${id}`),
@@ -192,22 +191,30 @@ export const adminApi = {
   updateRecipe: (id: string, data: UpdateRecipeFullInput) =>
     api.patch<Recipe>(`/admin/recipes/${id}`, data),
   deleteRecipe: (id: string) => api.delete<void>(`/admin/recipes/${id}`),
-  importFromUrl: (url: string) =>
-    api.post<{ jobId: string; url: string }>('/admin/recipes/import-url', { url } satisfies ImportUrlDto),
+  importFromUrl: (url: string, force?: boolean) =>
+    api.post<{ jobId: string; url: string }>('/admin/recipes/import-url', {
+      url,
+      force,
+    } satisfies ImportUrlDto),
   getImportJobStatus: (jobId: string) =>
-    api.get<ImportJobSnapshot>(`/admin/recipes/import-url/status?jobId=${encodeURIComponent(jobId)}`),
+    api.get<ImportJobSnapshot>(
+      `/admin/recipes/import-url/status?jobId=${encodeURIComponent(jobId)}`,
+    ),
+  resumeImportJob: (jobId: string) =>
+    api.post<{ id: string; title: string }>(
+      `/admin/recipes/import-url/resume?jobId=${encodeURIComponent(jobId)}`,
+      {},
+    ),
   searchIngredients: (q: string, limit = 20) =>
     api.get<IngredientSearchResult[]>(
       `/admin/ingredients/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     ),
   getUnits: () => api.get<Unit[]>('/admin/units'),
-  getIngredientCategories: () =>
-    api.get<IngredientCategory[]>('/admin/ingredient-categories'),
+  getIngredientCategories: () => api.get<IngredientCategory[]>('/admin/ingredient-categories'),
   getTags: () => api.get<Tag[]>('/admin/tags'),
   suggestTags: (recipeId: string) =>
     api.post<string[]>(`/admin/recipes/${recipeId}/suggest-tags`, {}),
-  renameTag: (id: string, name: string) =>
-    api.patch<Tag>(`/admin/tags/${id}`, { name }),
+  renameTag: (id: string, name: string) => api.patch<Tag>(`/admin/tags/${id}`, { name }),
   deleteTag: (id: string) => api.delete<void>(`/admin/tags/${id}`),
   getAuditLogs: (page = 1, limit = 50) =>
     api.get<{ items: AuditLogEntry[]; total: number; page: number; limit: number }>(

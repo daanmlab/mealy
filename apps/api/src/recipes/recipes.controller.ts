@@ -31,6 +31,8 @@ export class RecipesController {
   @Post()
   @UseGuards(ApiKeyGuard)
   create(@Body() dto: CreateRecipeDto) {
-    return this.recipesService.create(dto);
+    const { force, ...recipeDto } = dto;
+    void force;
+    return this.recipesService.create(recipeDto, true, false);
   }
 }
