@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { X, Clock, Search } from 'lucide-react';
 import { recipesApi } from '@/lib/api';
 import type { Recipe, RecipeTag, Plan, PlanMeal } from '@/lib/api';
 
@@ -13,15 +14,14 @@ interface SwapPickerModalProps {
 
 const TAG_OPTIONS: { label: string; value: RecipeTag | 'all' }[] = [
   { label: 'All', value: 'all' },
-  { label: '⚡ Quick', value: 'quick' },
-  { label: '🥗 Healthy', value: 'healthy' },
-  { label: '🌿 Vegetarian', value: 'vegetarian' },
-  { label: '💪 Protein', value: 'high_protein' },
-  { label: '💰 Budget', value: 'cheap' },
-  { label: '🍝 Pasta', value: 'pasta' },
-  { label: '🥣 Bowl', value: 'bowl' },
-  { label: '🍲 Soup', value: 'soup' },
-  
+  { label: 'Quick', value: 'quick' },
+  { label: 'Healthy', value: 'healthy' },
+  { label: 'Vegetarian', value: 'vegetarian' },
+  { label: 'Protein', value: 'high_protein' },
+  { label: 'Budget', value: 'cheap' },
+  { label: 'Pasta', value: 'pasta' },
+  { label: 'Bowl', value: 'bowl' },
+  { label: 'Soup', value: 'soup' },
 ];
 
 function RecipeRow({ recipe, onSwap }: { recipe: Recipe; onSwap: (id: string) => Promise<void> }) {
@@ -29,14 +29,20 @@ function RecipeRow({ recipe, onSwap }: { recipe: Recipe; onSwap: (id: string) =>
     <button
       key={recipe.id}
       onClick={() => onSwap(recipe.id)}
-      className="w-full flex items-center gap-3 px-0 py-3 border-b border-gray-50 last:border-0 text-left hover:bg-gray-50 rounded-lg transition-colors -mx-1 px-1"
+      className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-surface-container rounded-xl transition-colors"
     >
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-gray-900 text-sm truncate">{recipe.title}</p>
+        <p className="font-medium text-on-surface text-sm truncate">{recipe.title}</p>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-gray-400">⏱ {recipe.cookTimeMinutes} min</span>
+          <span className="text-xs text-on-surface-variant flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {recipe.cookTimeMinutes} min
+          </span>
           {recipe.tags.slice(0, 3).map((t) => (
-            <span key={t.tag.slug} className="text-xs px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 capitalize">
+            <span
+              key={t.tag.slug}
+              className="text-xs px-2 py-0.5 bg-surface-container rounded-full text-on-surface-variant capitalize"
+            >
               {t.tag.slug.replace('_', '-')}
             </span>
           ))}
@@ -64,61 +70,66 @@ export default function SwapPickerModal({ plan, meal, onSwap, onClose }: SwapPic
 
   const filtered = allRecipes
     .filter((r) => {
-      const matchesSearch = search.trim() === '' || r.title.toLowerCase().includes(search.trim().toLowerCase());
+      const matchesSearch =
+        search.trim() === '' || r.title.toLowerCase().includes(search.trim().toLowerCase());
       const matchesTag = activeTag === 'all' || r.tags.some((rt) => rt.tag.slug === activeTag);
       return matchesSearch && matchesTag;
     })
     .slice(0, 50);
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 bg-on-surface/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-surface-container-lowest rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[85vh] flex flex-col shadow-[0_12px_32px_rgba(28,28,24,0.08)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-outline-variant/20">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Choose a recipe</h2>
-            <p className="text-xs text-gray-400 mt-0.5 capitalize">
+            <h2 className="text-lg font-bold text-primary font-headline">Choose a recipe</h2>
+            <p className="text-sm text-on-surface-variant mt-0.5 capitalize">
               Replacing: {meal.day} — {meal.recipe.title}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 -mr-1">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
+          <button
+            onClick={onClose}
+            className="text-on-surface-variant hover:text-on-surface transition-colors p-2 -mr-2 rounded-lg hover:bg-surface-container"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto flex-1 px-4 pb-4">
+        <div className="overflow-y-auto flex-1 px-6 pb-6">
           {loading ? (
             <>
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse mb-2" />
+                <div key={i} className="h-14 bg-surface-container rounded-xl animate-pulse mb-2" />
               ))}
             </>
           ) : (
             <>
               {!isFiltering && (
                 <>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-4 mb-2">Suggestions</p>
+                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mt-6 mb-3">
+                    Suggestions
+                  </p>
                   {suggestions.map((recipe) => (
                     <RecipeRow key={recipe.id} recipe={recipe} onSwap={onSwap} />
                   ))}
-                  <div className="border-t border-gray-100 my-4" />
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Browse all</p>
+                  <div className="border-t border-outline-variant/20 my-4" />
+                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-3">
+                    Browse all
+                  </p>
                 </>
               )}
 
-              <input
-                placeholder="Search recipes…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm mb-3 mt-2"
-              />
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
+                <input
+                  placeholder="Search recipes…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-surface-container-low rounded-xl text-sm focus-glow border border-transparent"
+                />
+              </div>
 
               {/* Tag strip */}
               <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
@@ -128,8 +139,8 @@ export default function SwapPickerModal({ plan, meal, onSwap, onClose }: SwapPic
                     onClick={() => setActiveTag(value)}
                     className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors ${
                       activeTag === value
-                        ? 'bg-gray-900 text-white border-gray-900'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        ? 'bg-primary text-on-primary border-primary'
+                        : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/20 hover:border-outline'
                     }`}
                   >
                     {label}
