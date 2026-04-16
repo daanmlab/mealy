@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import type { Plan } from '@/lib/api';
 
@@ -32,8 +33,8 @@ function toISODate(d: Date): string {
   return d.toISOString().split('T')[0] as string;
 }
 
-const DAY_LABELS_MON = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const DAY_LABELS_SUN = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAY_LABELS_MON = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const DAY_LABELS_SUN = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 const DAY_OF_WEEK_MAP: Record<number, string> = {
   1: 'monday',
@@ -46,8 +47,18 @@ const DAY_OF_WEEK_MAP: Record<number, string> = {
 };
 
 const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 export function MonthlyCalendar({
@@ -83,7 +94,9 @@ export function MonthlyCalendar({
   }
 
   const selectedWeekISO = toISODate(selectedWeekStart);
-  const selectedRowIndex = rows.findIndex((row) => toISODate(rowMonday(row, weekStartsOn)) === selectedWeekISO);
+  const selectedRowIndex = rows.findIndex(
+    (row) => toISODate(rowMonday(row, weekStartsOn)) === selectedWeekISO,
+  );
 
   useEffect(() => {
     const el = rowsRef.current[0];
@@ -107,37 +120,36 @@ export function MonthlyCalendar({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-white select-none">
-      {/* Dark overlay — below sliding pill (z-[2]) and row content (z-[3]) */}
-      <div className="absolute inset-0 bg-black/25 z-[1] pointer-events-none rounded-2xl" />
-
+    <div className="bg-surface-container-lowest rounded-xl shadow-[0_12px_32px_rgba(28,28,24,0.06)] p-6 select-none">
       {/* Header */}
-      <div className="relative z-[10] flex items-center justify-between px-3 pt-3 pb-2">
-        <button
-          onClick={handlePrevMonth}
-          className="w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 text-sm font-medium"
-          aria-label="Previous month"
-        >
-          ‹
-        </button>
-        <span className="text-sm font-semibold text-gray-800">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-primary font-headline">
           {MONTH_NAMES[month]} {year}
-        </span>
-        <button
-          onClick={handleNextMonth}
-          className="w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 text-sm font-medium"
-          aria-label="Next month"
-        >
-          ›
-        </button>
+        </h2>
+        <div className="flex gap-2">
+          <button
+            onClick={handlePrevMonth}
+            className="p-1 hover:bg-surface-container rounded-full transition-colors"
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="w-5 h-5 text-on-surface-variant" />
+          </button>
+          <button
+            onClick={handleNextMonth}
+            className="p-1 hover:bg-surface-container rounded-full transition-colors"
+            aria-label="Next month"
+          >
+            <ChevronRight className="w-5 h-5 text-on-surface-variant" />
+          </button>
+        </div>
       </div>
 
       {/* Column headers */}
-      <div className="relative z-[10] grid grid-cols-7 px-1 pb-1">
+      <div className="grid grid-cols-7 mb-2">
         {(weekStartsOn === 1 ? DAY_LABELS_MON : DAY_LABELS_SUN).map((label, i) => (
           <div
             key={i}
-            className="flex items-center justify-center text-[10px] font-medium text-gray-400"
+            className="flex items-center justify-center text-[10px] font-bold text-on-surface-variant uppercase tracking-widest"
           >
             {label}
           </div>
@@ -145,10 +157,10 @@ export function MonthlyCalendar({
       </div>
 
       {/* Week rows */}
-      <div className="pb-1 relative">
+      <div className="relative">
         {rowHeight > 0 && selectedRowIndex !== -1 && (
           <div
-            className="absolute inset-x-1 z-[2] bg-white rounded-[1em] ring-1 ring-olive-subtle shadow-sm pointer-events-none transition-transform duration-300 ease-in-out"
+            className="absolute inset-x-0 bg-secondary-container/20 rounded-lg pointer-events-none transition-transform duration-300 ease-in-out"
             style={{
               height: rowHeight,
               top: 0,
@@ -160,6 +172,7 @@ export function MonthlyCalendar({
         {rows.map((row, rowIndex) => {
           const monday = rowMonday(row, weekStartsOn);
           const mondayISO = toISODate(monday);
+          const isSelectedRow = rowIndex === selectedRowIndex;
 
           return (
             <div
@@ -167,7 +180,7 @@ export function MonthlyCalendar({
               ref={(el) => {
                 rowsRef.current[rowIndex] = el;
               }}
-              className="relative z-[3] grid grid-cols-7"
+              className="grid grid-cols-7 relative z-10"
             >
               {row.map((day) => {
                 const dayISO = toISODate(day);
@@ -176,30 +189,29 @@ export function MonthlyCalendar({
 
                 const dayOfWeek = DAY_OF_WEEK_MAP[day.getDay()] ?? '';
                 const hasMeal = plan !== null && plan.meals.some((m) => m.day === dayOfWeek);
-                const hasGrocery = plan !== null && plan.status === 'confirmed' && day.getDay() === 1;
+                const hasGrocery =
+                  plan !== null && plan.status === 'confirmed' && day.getDay() === 1;
 
                 return (
                   <div
                     key={dayISO}
                     onClick={() => onWeekSelect(monday, day)}
-                    className="flex flex-col items-center justify-start pt-1 pb-1 cursor-pointer"
+                    className="flex flex-col items-center justify-center py-2 cursor-pointer"
                   >
                     <span
-                      className={`text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-medium ${
+                      className={`text-sm w-8 h-8 flex items-center justify-center rounded-full font-medium transition-colors ${
                         isToday
-                          ? 'bg-olive text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-primary text-on-primary'
+                          : isSelectedRow
+                            ? 'text-secondary font-bold'
+                            : 'text-on-surface hover:bg-surface-container'
                       }`}
                     >
                       {day.getDate()}
                     </span>
-                    <div className="flex gap-0.5 mt-0.5 h-2 items-center justify-center">
-                      {hasMeal && (
-                        <span className="w-1 h-1 rounded-full bg-olive block" />
-                      )}
-                      {hasGrocery && (
-                        <span className="w-1 h-1 rounded-full bg-amber-400 block" />
-                      )}
+                    <div className="flex gap-0.5 mt-1 h-2 items-center justify-center">
+                      {hasMeal && <span className="w-1 h-1 rounded-full bg-secondary block" />}
+                      {hasGrocery && <span className="w-1 h-1 rounded-full bg-tertiary block" />}
                     </div>
                   </div>
                 );

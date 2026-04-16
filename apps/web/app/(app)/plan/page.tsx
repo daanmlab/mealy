@@ -3,24 +3,48 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  ShoppingBasket,
+  Lock,
+  Unlock,
+  Heart,
+  ArrowRightLeft,
+  Clock,
+  Users,
+  Star,
+  ArrowRight,
+  List,
+  UtensilsCrossed,
+  RotateCcw,
+} from 'lucide-react';
 import { plansApi, favoritesApi, type Plan, type PlanMeal, type FavoriteRecipe } from '@/lib/api';
 import { MonthlyCalendar } from '@/components/MonthlyCalendar';
 import { useWeekStartDay } from '@/hooks/useWeekStartDay';
 import SwapPickerModal from '@/components/SwapPickerModal';
 
-const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-const DAY_LABELS: Record<string, string> = {
-  monday: 'Mon',
-  tuesday: 'Tue',
-  wednesday: 'Wed',
-  thursday: 'Thu',
-  friday: 'Fri',
-  saturday: 'Sat',
-  sunday: 'Sun',
+const DAY_LABELS_FULL: Record<string, string> = {
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+  saturday: 'Saturday',
+  sunday: 'Sunday',
 };
 
-// Maps Date.getDay() (0=Sun) to day name
-const DAY_BY_INDEX = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+const DAY_BY_INDEX = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const;
 
 function getWeekStart(offset = 0): Date {
   const now = new Date();
@@ -73,6 +97,34 @@ function getFirstMondayOfMonth(year: number, month: number): Date {
   while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+function RecipeImage({
+  title,
+  imageUrl,
+  className = '',
+  size = 'small',
+}: {
+  title: string;
+  imageUrl?: string | null;
+  className?: string;
+  size?: 'small' | 'large';
+}) {
+  if (imageUrl) {
+    return (
+      <Image src={imageUrl} alt={title} className={`w-full h-full object-cover block ${className}`} />
+    );
+  }
+
+  return (
+    <div
+      className={`w-full h-full flex items-center justify-center bg-surface-container ${className}`}
+    >
+      <UtensilsCrossed
+        className={`text-on-surface-variant/30 ${size === 'large' ? 'w-12 h-12' : 'w-6 h-6'}`}
+      />
+    </div>
+  );
 }
 
 export default function PlanPage() {
@@ -242,12 +294,11 @@ export default function PlanPage() {
   }
 
   const isConfirmed = plan?.status === 'confirmed';
-  const planDays = new Set(plan?.meals.map((m) => m.day) ?? []);
 
   const weekStart = getWeekStart(weekOffset);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
-  const weekRangeLabel = `${weekStart.toLocaleDateString('en-NL', { day: 'numeric', month: 'short' })} – ${weekEnd.toLocaleDateString('en-NL', { day: 'numeric', month: 'short' })}`;
+  const weekRangeLabel = `${weekStart.toLocaleDateString('en-NL', { day: 'numeric', month: 'short' })} – ${weekEnd.toLocaleDateString('en-NL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
   function handleWeekSelect(monday: Date, day: Date) {
     const dayName = DAY_BY_INDEX[day.getDay()] ?? null;
@@ -267,264 +318,355 @@ export default function PlanPage() {
     setWeekOffset(dateToWeekOffset(getFirstMondayOfMonth(year, month)));
   }
 
-  return (
-    <div className="lg:flex lg:gap-6 lg:items-start">
-      {/* Monthly calendar — hidden on mobile */}
-      <div className="hidden lg:block lg:w-64 lg:shrink-0 lg:sticky">
-        <MonthlyCalendar
-          year={calYear}
-          month={calMonth}
-          selectedWeekStart={getWeekStart(weekOffset)}
-          monthPlans={monthPlans}
-          onWeekSelect={handleWeekSelect}
-          onMonthChange={handleMonthChange}
-          weekStartsOn={weekStartsOn}
-        />
-      </div>
+  // Calculate stats
+  const plannedDays = plan?.meals.length ?? 0;
+  const ingredientsCount =
+    plan?.meals.reduce((acc, meal) => acc + meal.recipe.ingredients.length, 0) ?? 0;
 
-      {/* Week detail panel */}
-      <div className="flex-1 min-w-0 space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setWeekOffset((o) => o - 1)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors text-sm"
-                aria-label="Previous week"
-              >
-                ‹
-              </button>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                  {weekLabel(weekOffset)}
-                </h1>
-                <p className="text-xs text-gray-400">{weekRangeLabel}</p>
+  // Get featured recipe (first meal or selected)
+  const featuredMeal = selected ?? plan?.meals[0];
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Left Column: Calendar & Weekly Summary */}
+      <div className="lg:col-span-4 flex flex-col gap-6">
+        {/* Calendar */}
+        <div className="hidden lg:block">
+          <MonthlyCalendar
+            year={calYear}
+            month={calMonth}
+            selectedWeekStart={getWeekStart(weekOffset)}
+            monthPlans={monthPlans}
+            onWeekSelect={handleWeekSelect}
+            onMonthChange={handleMonthChange}
+            weekStartsOn={weekStartsOn}
+          />
+        </div>
+
+        {/* Mobile Week Navigation */}
+        <div className="lg:hidden bg-surface-container-lowest rounded-xl shadow-[0_12px_32px_rgba(28,28,24,0.06)] p-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setWeekOffset((o) => o - 1)}
+              className="p-2 hover:bg-surface-container rounded-full transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-on-surface-variant" />
+            </button>
+            <div className="text-center">
+              <h2 className="text-lg font-bold text-primary font-headline">
+                {weekLabel(weekOffset)}
+              </h2>
+              <p className="text-sm text-on-surface-variant">{weekRangeLabel}</p>
+            </div>
+            <button
+              onClick={() => setWeekOffset((o) => o + 1)}
+              className="p-2 hover:bg-surface-container rounded-full transition-colors"
+            >
+              <ChevronRight className="w-5 h-5 text-on-surface-variant" />
+            </button>
+          </div>
+        </div>
+
+        {/* Meal Overview */}
+        <section className="bg-surface-container-low rounded-xl p-6 shadow-[0_12px_32px_rgba(28,28,24,0.06)]">
+          <h3 className="text-xl font-bold text-primary font-headline mb-6">Meal Overview</h3>
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center p-4 bg-surface-container-lowest rounded-xl">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-secondary" />
+                <span className="text-sm font-medium text-on-surface">Planned Days</span>
               </div>
-              <button
-                onClick={() => setWeekOffset((o) => o + 1)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors text-sm"
-                aria-label="Next week"
-              >
-                ›
-              </button>
+              <span className="text-lg font-bold text-primary">{plannedDays}/7</span>
+            </div>
+            <div className="flex justify-between items-center p-4 bg-surface-container-lowest rounded-xl">
+              <div className="flex items-center gap-3">
+                <ShoppingBasket className="w-5 h-5 text-secondary" />
+                <span className="text-sm font-medium text-on-surface">Ingredients</span>
+              </div>
+              <span className="text-lg font-bold text-primary">{ingredientsCount}</span>
             </div>
           </div>
-
-          {!loading &&
-            plan &&
-            (!isConfirmed ? (
+          <div className="grid grid-cols-2 gap-4 mt-6">
+            {!isConfirmed ? (
               <button
                 onClick={handleConfirm}
                 disabled={confirming}
-                className="px-4 py-2 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark disabled:opacity-50 transition-colors"
+                className="w-full py-4 px-6 btn-primary-gradient text-on-primary font-bold rounded-full shadow-lg active:scale-95 transition-transform disabled:opacity-50"
               >
-                {confirming ? 'Confirming…' : 'Confirm & shop →'}
+                {confirming ? 'Confirming…' : 'Confirm'}
               </button>
             ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowUnlockDialog(true)}
-                  className="px-4 py-2 border border-gray-200 text-gray-500 rounded-xl text-sm font-semibold hover:border-gray-300 hover:text-gray-700 transition-colors"
-                >
-                  🔓 Unlock
-                </button>
-                <button
-                  onClick={() => router.push(`/plan/${plan.id}/grocery`)}
-                  className="px-4 py-2 bg-olive text-white rounded-xl text-sm font-semibold hover:bg-olive-dark transition-colors"
-                >
-                  Grocery list →
-                </button>
-              </div>
-            ))}
-        </div>
+              <button
+                onClick={() => setShowUnlockDialog(true)}
+                className="w-full py-4 px-6 btn-primary-gradient text-on-primary font-bold rounded-full shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
+              >
+                <Unlock className="w-4 h-4" />
+                Unlock
+              </button>
+            )}
+            <button
+              onClick={() => plan && router.push(`/plan/${plan.id}/grocery`)}
+              className="w-full py-4 px-6 bg-surface-container-high text-on-surface font-bold rounded-full active:scale-95 transition-transform hover:bg-surface-container"
+            >
+              Grocery list
+            </button>
+          </div>
+        </section>
+      </div>
+
+      {/* Right Column: This Week & Featured Recipe */}
+      <div className="lg:col-span-8 space-y-8">
+        {/* Header */}
+        <header className="hidden lg:flex flex-col gap-2">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setWeekOffset((o) => o - 1)}
+              className="p-2 hover:bg-surface-container rounded-full transition-colors"
+              aria-label="Previous week"
+            >
+              <ChevronLeft className="w-5 h-5 text-on-surface-variant" />
+            </button>
+            <div>
+              <h1 className="text-4xl font-extrabold text-primary font-headline tracking-tight">
+                {weekLabel(weekOffset)}
+              </h1>
+              <p className="text-lg text-on-surface-variant mt-1">{weekRangeLabel}</p>
+            </div>
+            <button
+              onClick={() => setWeekOffset((o) => o + 1)}
+              className="p-2 hover:bg-surface-container rounded-full transition-colors"
+              aria-label="Next week"
+            >
+              <ChevronRight className="w-5 h-5 text-on-surface-variant" />
+            </button>
+          </div>
+        </header>
 
         {loading ? (
-          <div className="space-y-4">
-            <div className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
-            <div className="h-48 bg-gray-100 rounded-2xl animate-pulse" />
+          <div className="space-y-6">
+            <div className="h-64 bg-surface-container rounded-2xl animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="h-48 bg-surface-container rounded-2xl animate-pulse" />
+              <div className="h-48 bg-surface-container rounded-2xl animate-pulse" />
+            </div>
           </div>
         ) : error ? (
-          <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
-            <p className="text-red-600 text-sm">{error}</p>
+          <div className="bg-error-container rounded-2xl p-8 text-center">
+            <p className="text-error font-medium">{error}</p>
           </div>
         ) : !plan ? null : (
           <>
-            {/* Calendar grid */}
-            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-              <div className="grid grid-cols-7 border-b border-gray-100">
-                {DAYS.map((day) => {
-                  const meal = plan.meals.find((m) => m.day === day);
-                  const isActive = planDays.has(day as (typeof plan.meals)[0]['day']);
-                  const isSelected = selected?.day === day;
-
-                  return (
-                    <button
-                      key={day}
-                      disabled={!isActive}
-                      onClick={() => meal && setSelected(meal)}
-                      className={`py-3 px-1 flex flex-col items-center gap-1 transition-colors border-r last:border-r-0 border-gray-100 ${
-                        !isActive
-                          ? 'opacity-30 cursor-default bg-gray-50'
-                          : isSelected
-                            ? 'bg-olive-subtle'
-                            : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <span
-                        className={`text-[11px] font-semibold uppercase tracking-wide ${isSelected ? 'text-olive' : 'text-gray-400'}`}
-                      >
-                        {DAY_LABELS[day]}
-                      </span>
-                      {meal && (
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${meal.isLocked ? 'bg-amber-400' : isSelected ? 'bg-olive' : 'bg-gray-300'}`}
-                        />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Selected meal detail */}
-              {selected && (
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
+            {/* Featured Recipe Card */}
+            {featuredMeal && (
+              <section className="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-[0_12px_32px_rgba(28,28,24,0.06)]">
+                <div className="grid grid-cols-1 md:grid-cols-2">
+                  <div className="h-64 md:h-80 relative overflow-hidden">
+                    <RecipeImage
+                      title={featuredMeal.recipe.title}
+                      imageUrl={featuredMeal.recipe.imageUrl}
+                      size="large"
+                    />
+                    <div className="absolute top-4 left-4 bg-secondary text-on-secondary px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest">
+                      {isConfirmed ? 'Confirmed' : 'Recommended'}
+                    </div>
+                  </div>
+                  <div className="p-6 md:p-8 flex flex-col justify-center gap-4">
+                    <div>
                       <Link
-                        href={`/recipes/${selected.recipe.id}`}
-                        className="font-semibold text-gray-900 hover:text-olive-dark transition-colors leading-tight block"
+                        href={`/recipes/${featuredMeal.recipe.id}`}
+                        className="text-2xl md:text-3xl font-extrabold text-primary font-headline hover:text-secondary transition-colors block"
                       >
-                        {selected.recipe.title}
+                        {featuredMeal.recipe.title}
                       </Link>
-                      <p className="text-sm text-gray-400 mt-1">{selected.recipe.description}</p>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                        <span>⏱ {selected.recipe.cookTimeMinutes} min</span>
-                        <span>👤 {selected.recipe.servings} servings</span>
-                        <div className="flex gap-1 flex-wrap">
-                          {selected.recipe.tags.map((t) => (
-                            <span
-                              key={t.tag.slug}
-                              className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 capitalize"
-                            >
-                              {t.tag.slug.replace('_', '-')}
-                            </span>
-                          ))}
-                        </div>
+                      <p className="text-on-surface-variant leading-relaxed mt-2 italic">
+                        {featuredMeal.recipe.description}
+                      </p>
+                    </div>
+                    <div className="flex gap-6">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-secondary" />
+                        <span className="text-sm font-semibold text-on-surface">
+                          {featuredMeal.recipe.cookTimeMinutes} min
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-secondary" />
+                        <span className="text-sm font-semibold text-on-surface">
+                          {featuredMeal.recipe.servings} servings
+                        </span>
                       </div>
                     </div>
+                    <div className="flex flex-wrap gap-2">
+                      {featuredMeal.recipe.tags.slice(0, 3).map((t) => (
+                        <span
+                          key={t.tag.slug}
+                          className="px-3 py-1 bg-surface-container text-on-surface-variant text-xs font-medium rounded-full"
+                        >
+                          {t.tag.slug.replace('_', ' ')}
+                        </span>
+                      ))}
+                    </div>
 
+                    {/* Action buttons for featured recipe */}
                     {!isConfirmed && (
-                      <div className="flex flex-col gap-1.5 shrink-0">
+                      <div className="flex gap-2 mt-2">
                         <button
-                          onClick={() => handleFavorite(selected.recipe.id)}
-                          className={`p-2 rounded-lg text-sm transition-colors ${
-                            favorites.has(selected.recipe.id)
-                              ? 'text-red-500 bg-red-50'
-                              : 'text-gray-300 hover:text-gray-500'
+                          onClick={() => handleFavorite(featuredMeal.recipe.id)}
+                          className={`p-2.5 rounded-xl transition-colors ${
+                            favorites.has(featuredMeal.recipe.id)
+                              ? 'bg-tertiary-container text-tertiary'
+                              : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
                           }`}
                           title="Favorite"
                         >
-                          ♥
+                          <Heart
+                            className={`w-5 h-5 ${favorites.has(featuredMeal.recipe.id) ? 'fill-current' : ''}`}
+                          />
                         </button>
                         <button
-                          onClick={() => handleLock(selected)}
-                          className={`p-2 rounded-lg text-sm transition-colors ${
-                            selected.isLocked
-                              ? 'text-amber-600 bg-amber-50'
-                              : 'text-gray-300 hover:text-gray-500'
+                          onClick={() => handleLock(featuredMeal)}
+                          className={`p-2.5 rounded-xl transition-colors ${
+                            featuredMeal.isLocked
+                              ? 'bg-secondary-container text-secondary'
+                              : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
                           }`}
-                          title={selected.isLocked ? 'Unlock' : 'Lock'}
+                          title={featuredMeal.isLocked ? 'Unlock' : 'Lock'}
                         >
-                          {selected.isLocked ? '🔒' : '🔓'}
+                          {featuredMeal.isLocked ? (
+                            <Lock className="w-5 h-5" />
+                          ) : (
+                            <Unlock className="w-5 h-5" />
+                          )}
                         </button>
                         <button
-                          onClick={() => setSwapTarget(selected)}
-                          disabled={selected.isLocked}
-                          className="p-2 rounded-lg text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors text-sm"
+                          onClick={() => setSwapTarget(featuredMeal)}
+                          disabled={featuredMeal.isLocked}
+                          className="p-2.5 rounded-xl bg-surface-container text-on-surface-variant hover:bg-surface-container-high disabled:opacity-30 transition-colors"
                           title="Swap"
                         >
-                          ⇄
+                          <ArrowRightLeft className="w-5 h-5" />
                         </button>
                       </div>
                     )}
                   </div>
+                </div>
+              </section>
+            )}
 
-                  {/* Ingredients preview */}
-                  <div className="mt-4 pt-4 border-t border-gray-50">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                      Ingredients
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selected.recipe.ingredients.map((ri) => (
-                        <span
-                          key={ri.id}
-                          className="text-xs px-2 py-1 bg-gray-50 rounded-lg text-gray-600 capitalize"
-                        >
+            {/* Bento Grid: Ingredients + Week at a Glance */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:auto-rows-fr">
+              {/* Ingredients List */}
+              {featuredMeal && (
+                <section className="bg-surface-container-low rounded-2xl p-6 flex flex-col min-h-[400px]">
+                  <h3 className="text-xl font-bold text-primary font-headline mb-4 flex items-center gap-2 flex-shrink-0">
+                    <List className="w-5 h-5" />
+                    Ingredients
+                  </h3>
+                  <ul className="space-y-3 flex-1 overflow-y-auto pr-2">
+                    {featuredMeal.recipe.ingredients.map((ri) => (
+                      <li
+                        key={ri.id}
+                        className="flex items-start gap-3 pb-3 border-b border-outline-variant/20 last:border-0"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-secondary mt-1.5 flex-shrink-0" />
+                        <span className="text-sm text-on-surface">
+                          <span className="font-semibold">
+                            {ri.amount} {ri.unit?.symbol || ''}
+                          </span>{' '}
                           {ri.ingredient.name}
                         </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               )}
+
+              {/* Week at a Glance */}
+              <section className="flex flex-col gap-4">
+                <h3 className="text-xl font-bold text-primary font-headline flex items-center gap-2">
+                  <UtensilsCrossed className="w-5 h-5" />
+                  Week at a Glance
+                </h3>
+                <div className="space-y-3">
+                  {plan.meals.map((meal) => {
+                    const isSelected = selected?.id === meal.id;
+                    return (
+                      <div
+                        key={meal.id}
+                        onClick={() => setSelected(meal)}
+                        className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-secondary-container/20 border border-secondary/20'
+                            : 'hover:bg-surface-container'
+                        }`}
+                      >
+                        <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 shadow-sm">
+                          <RecipeImage
+                            title={meal.recipe.title}
+                            imageUrl={meal.recipe.imageUrl}
+                            size="small"
+                          />
+                        </div>
+                        <div className="flex-grow min-w-0">
+                          <p className="text-[10px] font-bold text-secondary uppercase tracking-widest">
+                            {DAY_LABELS_FULL[meal.day]}
+                          </p>
+                          <h4
+                            className={`font-bold truncate ${isSelected ? 'text-primary' : 'text-on-surface hover:text-secondary'} transition-colors`}
+                          >
+                            {meal.recipe.title}
+                          </h4>
+                          <span className="text-xs text-on-surface-variant">
+                            {meal.recipe.cookTimeMinutes}m •{' '}
+                            {meal.recipe.tags[0]?.tag.slug.replace('_', ' ') || 'Meal'}
+                          </span>
+                        </div>
+                        {isSelected ? (
+                          <Star className="w-5 h-5 text-secondary fill-secondary" />
+                        ) : (
+                          <ArrowRight className="w-5 h-5 text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity" />
+                        )}
+                        {meal.isLocked && <Lock className="w-4 h-4 text-secondary" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             </div>
 
-            {/* Meal list (compact, all days) */}
-            <div className="space-y-1.5">
-              {plan.meals.map((meal) => (
-                <button
-                  key={meal.id}
-                  onClick={() => setSelected(meal)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left ${
-                    selected?.id === meal.id
-                      ? 'border-olive-subtle bg-olive-subtle'
-                      : 'border-gray-100 bg-white hover:border-gray-200'
-                  }`}
-                >
-                  <span className="text-xs font-bold text-gray-400 uppercase w-8 shrink-0">
-                    {DAY_LABELS[meal.day]}
-                  </span>
-                  <span className="flex-1 text-sm font-medium text-gray-800 truncate">
-                    {meal.recipe.title}
-                  </span>
-                  <span className="text-xs text-gray-400 shrink-0">
-                    {meal.recipe.cookTimeMinutes}m
-                  </span>
-                  {meal.isLocked && <span className="text-xs">🔒</span>}
-                </button>
-              ))}
-            </div>
-
+            {/* Regenerate Button */}
             {!isConfirmed && (
               <button
                 onClick={handleRegenerate}
-                className="w-full py-2.5 border border-dashed border-gray-300 rounded-xl text-sm text-gray-400 hover:border-olive hover:text-olive transition-colors"
+                className="w-full py-4 border border-dashed border-outline-variant rounded-xl text-sm text-on-surface-variant hover:border-secondary hover:text-secondary transition-colors flex items-center justify-center gap-2"
               >
-                ↺ Regenerate all meals
+                <RotateCcw className="w-4 h-4" />
+                Regenerate all meals
               </button>
             )}
           </>
         )}
+
+        {/* Unlock Dialog */}
         {showUnlockDialog && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-xl">
-              <h2 className="text-lg font-bold text-gray-900">Unlock this week?</h2>
-              <p className="text-sm text-gray-500">
+          <div className="fixed inset-0 bg-on-surface/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-surface-container-lowest rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-[0_12px_32px_rgba(28,28,24,0.08)]">
+              <h2 className="text-lg font-bold text-primary font-headline">Unlock this week?</h2>
+              <p className="text-sm text-on-surface-variant">
                 This will re-open the plan for editing. Your grocery list will remain available but
                 the plan will return to draft status.
               </p>
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={() => setShowUnlockDialog(false)}
-                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:border-gray-300 transition-colors"
+                  className="flex-1 py-2.5 border border-outline-variant rounded-xl text-sm font-semibold text-on-surface-variant hover:border-outline transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUnlock}
                   disabled={unlocking}
-                  className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                  className="flex-1 py-2.5 bg-secondary text-on-secondary rounded-xl text-sm font-semibold hover:bg-secondary/90 disabled:opacity-50 transition-colors"
                 >
                   {unlocking ? 'Unlocking…' : 'Yes, unlock'}
                 </button>
@@ -533,6 +675,7 @@ export default function PlanPage() {
           </div>
         )}
       </div>
+
       {swapTarget && plan && (
         <SwapPickerModal
           plan={plan}

@@ -1,16 +1,84 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
-  --color-olive: #066009;
-  --color-olive-dark: #044d07;
+  /* Primary - Deep Forest */
+  --color-primary: #004900;
+  --color-primary-container: #006400;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #86df72;
+  --color-inverse-primary: #82db6f;
+
+  /* Secondary - Mint */
+  --color-secondary: #006c52;
+  --color-secondary-container: #8ff6d0;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #007257;
+  --color-secondary-fixed: #8ff6d0;
+  --color-secondary-fixed-dim: #73d9b5;
+  --color-on-secondary-fixed: #002117;
+  --color-on-secondary-fixed-variant: #00513d;
+
+  /* Tertiary - Special Occasion */
+  --color-tertiary: #790b4a;
+  --color-tertiary-container: #982962;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #ffb6d2;
+  --color-tertiary-fixed: #ffd9e5;
+  --color-tertiary-fixed-dim: #ffb0ce;
+  --color-on-tertiary-fixed: #3e0022;
+  --color-on-tertiary-fixed-variant: #851853;
+
+  /* Surface - Parchment Canvas */
+  --color-surface: #fcf9f2;
+  --color-surface-dim: #dcdad3;
+  --color-surface-bright: #fcf9f2;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f6f3ec;
+  --color-surface-container: #f0eee7;
+  --color-container-high: #ebe8e1;
+  --color-surface-container-highest: #e5e2db;
+  --color-surface-variant: #e5e2db;
+  --color-on-surface: #1c1c18;
+  --color-on-surface-variant: #404a3b;
+
+  /* Background */
+  --color-background: #fcf9f2;
+  --color-on-background: #1c1c18;
+
+  /* Outline - Ghost Borders */
+  --color-outline: #707a6a;
+  --color-outline-variant: #bfcab7;
+
+  /* Error */
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  /* Inverse */
+  --color-inverse-surface: #31312c;
+  --color-inverse-on-surface: #f3f0ea;
+
+  /* Legacy aliases for backward compatibility */
+  --color-olive: #004900;
+  --color-olive-dark: #003d00;
   --color-olive-subtle: #e8f5e8;
-  --color-cream: #faf9f3;
+  --color-cream: #fcf9f2;
+
+  /* Typography */
+  --font-headline: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  /* Shadows - Ambient & Diffused */
+  --shadow-ambient: 0 12px 32px rgba(28, 28, 24, 0.06);
+  --shadow-floating: 0 12px 32px rgba(28, 28, 24, 0.08);
+  --shadow-mobile-nav: 0 -4px 12px rgba(28, 28, 24, 0.04);
 }
 
 @layer base {
   :root {
-    --background: #faf9f3;
-    --foreground: #1c1e12;
+    --background: #fcf9f2;
+    --foreground: #1c1c18;
   }
 
   html,
@@ -22,6 +90,7 @@
   body {
     color: var(--foreground);
     background: var(--background);
+    font-family: var(--font-body);
   }
 
   * {
@@ -34,9 +103,61 @@
     color: inherit;
     text-decoration: none;
   }
+
+  /* Editorial Headlines */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .headline {
+    font-family: var(--font-headline);
+  }
+}
+
+@layer utilities {
+  /* Glassmorphism */
+  .glass {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background-color: rgba(252, 249, 242, 0.8);
+  }
+
+  /* Primary Gradient Button */
+  .btn-primary-gradient {
+    background: linear-gradient(135deg, #004900 0%, #006400 100%);
+  }
+
+  .btn-primary-gradient:hover {
+    filter: brightness(1.05);
+  }
+
+  .btn-primary-gradient:active {
+    transform: scale(0.98);
+  }
+
+  /* Ghost Border */
+  .ghost-border {
+    border-color: rgba(191, 202, 183, 0.2);
+  }
+
+  /* Focus Glow for Inputs */
+  .focus-glow:focus {
+    outline: none;
+    border-color: #006c52;
+    box-shadow: 0 0 0 2px rgba(0, 108, 82, 0.15);
+  }
 }
 
 @keyframes logo-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.55; transform: scale(0.92); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
 }
