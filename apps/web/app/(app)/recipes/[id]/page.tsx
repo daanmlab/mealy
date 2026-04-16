@@ -12,6 +12,41 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const scaledMacrosForIngredient = (ri: Recipe['ingredients'][number]) => {
+    const nutrient = ri.ingredient.nutrientLinks?.[0]?.nutrient;
+    const unitSymbol = ri?.unit?.symbol?.toLowerCase();
+
+    if (!nutrient || unitSymbol !== 'g') {
+      return {
+        calories: null,
+        protein: null,
+        fat: null,
+        carbs: null,
+      };
+    }
+
+    const scale = ri.amount / 100;
+
+    return {
+      calories:
+        nutrient.calories != null
+          ? Number((nutrient.calories * scale).toFixed(2))
+          : null,
+      protein:
+        nutrient.protein != null
+          ? Number((nutrient.protein * scale).toFixed(2))
+          : null,
+      fat:
+        nutrient.totalFats != null
+          ? Number((nutrient.totalFats * scale).toFixed(2))
+          : null,
+      carbs:
+        nutrient.carbs != null
+          ? Number((nutrient.carbs * scale).toFixed(2))
+          : null,
+    };
+  };
+
   useEffect(() => {
     recipesApi.get(id).then((r) => { setRecipe(r); setLoading(false); });
     favoritesApi.list().then((favs) => setIsFavorite(favs.some((f) => f.recipeId === id)));
@@ -93,6 +128,26 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
                 </span>
               </li>
             ))}
+          </ul>
+        </div>
+
+        <div className="border-t border-gray-50 p-6">
+          <h2 className="font-semibold text-gray-900 mb-3">Nutrients</h2>
+          <ul className="space-y-2">
+            {recipe.ingredients.map((ri) => {
+              const m = scaledMacrosForIngredient(ri);
+
+              return (
+                <li key={ri.id} className="flex items-center justify-between text-sm gap-4">
+                  <span className="text-gray-700 capitalize">{ri.ingredient.name}</span>
+                  <span className="text-gray-400 text-right">
+                    {m.calories == null
+                      ? 'n/a'
+                      : `${m.calories.toFixed(2)} kcal • P ${m.protein == null ? 'n/a' : `${m.protein.toFixed(2)}g`} • F ${m.fat == null ? 'n/a' : `${m.fat.toFixed(2)}g`} • C ${m.carbs == null ? 'n/a' : `${m.carbs.toFixed(2)}g`}`}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
 

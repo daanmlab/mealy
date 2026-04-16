@@ -1,0 +1,2 @@
+-- No-op migration.
+-- This file was missing and caused prisma migrate deploy to fail with P3015.

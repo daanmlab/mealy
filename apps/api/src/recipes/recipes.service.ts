@@ -1,13 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { CreateRecipeDto, RecipeQueryDto } from './recipes.dto';
+import { NutrientService } from '../macros/nutrient.service';
 
 @Injectable()
 export class RecipesService {
+  private readonly logger = new Logger(RecipesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly catalog: CatalogService,
+    private readonly nutrients: NutrientService,
   ) {}
 
   private readonly include = {
@@ -15,7 +19,16 @@ export class RecipesService {
     tags: { include: { tag: true } },
     ingredients: {
       include: {
-        ingredient: { include: { category: true } },
+        ingredient: {
+          include: {
+            category: true,
+            nutrientLinks: {
+              include: { nutrient: true },
+              orderBy: { createdAt: 'desc' as const },
+              take: 1,
+            },
+          },
+        },
         unit: true,
         group: true,
       },
@@ -24,7 +37,7 @@ export class RecipesService {
   };
 
   async findAll(query: RecipeQueryDto) {
-    return this.prisma.recipe.findMany({
+    const recipes = await this.prisma.recipe.findMany({
       where: {
         isActive: true,
         ...(query.maxCookTime && {
@@ -38,6 +51,11 @@ export class RecipesService {
       take: query.limit ?? 50,
       orderBy: { title: 'asc' },
     });
+
+    // Fire-and-forget: hydrate missing nutrients in the background
+    this.hydrateNutrientsInBackground(recipes);
+
+    return recipes;
   }
 
   async findById(id: string) {
@@ -46,7 +64,16 @@ export class RecipesService {
       include: this.include,
     });
     if (!recipe) throw new NotFoundException(`Recipe ${id} not found`);
-    return recipe;
+
+    const missingNames = this.getMissingNutrientNames([recipe]);
+    if (missingNames.length === 0) return recipe;
+
+    // Hydrate synchronously for single-recipe reads so the response includes nutrients
+    await this.nutrients.fetchNutrientsForIngredients(missingNames);
+    return this.prisma.recipe.findUniqueOrThrow({
+      where: { id },
+      include: this.include,
+    });
   }
 
   async findByTagSlugs(
@@ -54,7 +81,7 @@ export class RecipesService {
     excludeIds: string[] = [],
     limit = 20,
   ) {
-    return this.prisma.recipe.findMany({
+    const recipes = await this.prisma.recipe.findMany({
       where: {
         isActive: true,
         tags: { some: { tag: { slug: { in: tagSlugs } } } },
@@ -63,6 +90,10 @@ export class RecipesService {
       include: this.include,
       take: limit,
     });
+
+    this.hydrateNutrientsInBackground(recipes);
+
+    return recipes;
   }
 
   async findSuggestions(
@@ -89,9 +120,11 @@ export class RecipesService {
         }),
       },
       include: this.include,
-      take: limit * 3, // fetch extra so shuffle has variety
+      take: limit * 3,
       orderBy: { id: 'asc' },
     });
+
+    this.hydrateNutrientsInBackground(results);
 
     // Fisher-Yates shuffle for varied suggestions across calls
     for (let i = results.length - 1; i > 0; i--) {
@@ -103,17 +136,14 @@ export class RecipesService {
   }
 
   async create(dto: CreateRecipeDto, isActive = true) {
-    const UNIT_FALLBACK = 'unit'; // treated as null — means "countable, no real unit"
+    const UNIT_FALLBACK = 'unit';
 
-    // ── Pre-transaction: resolve ingredient names + infer missing units via LLM ─
-    // Both happen OUTSIDE the transaction so LLM calls don't hold DB locks.
     const resolvedIngredients = await Promise.all(
       dto.ingredients.map(async (ing) => {
         const resolvedIngredient = await this.catalog.resolveIngredient(
           ing.name,
         );
 
-        // For countable ingredients (no real unit), try to infer one via LLM
         let unitSymbol = ing.unitSymbol;
         let amount = ing.amount;
         if (unitSymbol === UNIT_FALLBACK || !unitSymbol) {
@@ -126,7 +156,7 @@ export class RecipesService {
             unitSymbol = inferred.unitSymbol;
             amount = inferred.amount;
           } else {
-            unitSymbol = UNIT_FALLBACK; // stay as null-unit
+            unitSymbol = UNIT_FALLBACK;
           }
         }
 
@@ -134,9 +164,11 @@ export class RecipesService {
       }),
     );
 
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Upsert Unit records for all unique non-"unit" symbols
-      // Use resolvedIngredients (post-LLM) so inferred unit symbols are included
+    const nutrientIngredientNames = [
+      ...new Set(resolvedIngredients.map((i) => i.resolvedIngredient.name)),
+    ];
+
+    const recipe = await this.prisma.$transaction(async (tx) => {
       const uniqueUnitSymbols = [
         ...new Set(
           resolvedIngredients
@@ -157,7 +189,6 @@ export class RecipesService {
         unitRecords.map((u, i) => [uniqueUnitSymbols[i], u]),
       );
 
-      // 2. Upsert IngredientCategory records
       const uniqueCategorySlugs = [
         ...new Set(dto.ingredients.map((i) => i.categorySlug).filter(Boolean)),
       ];
@@ -178,7 +209,6 @@ export class RecipesService {
         categoryRecords.map((c, i) => [uniqueCategorySlugs[i], c]),
       );
 
-      // 3. Upsert Tag records
       const uniqueTagSlugs = [...new Set(dto.tagSlugs)];
       const tagRecords = await Promise.all(
         uniqueTagSlugs.map((slug) =>
@@ -193,7 +223,6 @@ export class RecipesService {
         tagRecords.map((t, i) => [uniqueTagSlugs[i], t]),
       );
 
-      // 4. Deduplicate by (resolvedIngredientId, groupName), summing amounts for dupes
       const deduped = new Map<
         string,
         {
@@ -221,7 +250,6 @@ export class RecipesService {
       }
       const uniqueIngredients = [...deduped.values()];
 
-      // 5. Update categoryId on resolved ingredients if we now know it
       await Promise.all(
         uniqueIngredients
           .filter((ing) => ing.categorySlug)
@@ -235,7 +263,6 @@ export class RecipesService {
           }),
       );
 
-      // 6. Create the Recipe with RecipeTag join rows
       const recipe = await tx.recipe.create({
         data: {
           title: dto.title,
@@ -254,7 +281,6 @@ export class RecipesService {
         },
       });
 
-      // 7. Create IngredientGroup records for named groups
       const groupNames = [
         ...new Set(
           uniqueIngredients
@@ -273,7 +299,7 @@ export class RecipesService {
         groupRecords.map((g) => [g.name, g]),
       );
 
-      // 8. Create RecipeIngredient rows (unitId is null for countable/unit-less items)
+      // Use createMany for efficient bulk insert
       await tx.recipeIngredient.createMany({
         data: uniqueIngredients.map((ing) => ({
           recipeId: recipe.id,
@@ -291,5 +317,50 @@ export class RecipesService {
         include: this.include,
       });
     });
+
+    // Fire-and-forget: fetch nutrients asynchronously so create isn't blocked
+    this.nutrients
+      .fetchNutrientsForIngredients(nutrientIngredientNames)
+      .catch((err) =>
+        this.logger.warn('Background nutrient fetch failed', err),
+      );
+
+    return recipe;
+  }
+
+  // ── Private helpers ──────────────────────────────────────────────────────
+
+  private getMissingNutrientNames(
+    recipes: {
+      ingredients: {
+        ingredient: { name: string; nutrientLinks?: unknown[] };
+      }[];
+    }[],
+  ): string[] {
+    return [
+      ...new Set(
+        recipes
+          .flatMap((r) => r.ingredients)
+          .filter((i) => !i.ingredient.nutrientLinks?.length)
+          .map((i) => i.ingredient.name),
+      ),
+    ];
+  }
+
+  private hydrateNutrientsInBackground(
+    recipes: {
+      ingredients: {
+        ingredient: { name: string; nutrientLinks?: unknown[] };
+      }[];
+    }[],
+  ): void {
+    const names = this.getMissingNutrientNames(recipes);
+    if (names.length === 0) return;
+
+    this.nutrients
+      .fetchNutrientsForIngredients(names)
+      .catch((err) =>
+        this.logger.warn('Background nutrient hydration failed', err),
+      );
   }
 }
