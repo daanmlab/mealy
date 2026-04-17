@@ -112,7 +112,7 @@ function RecipeImage({
 }) {
   if (imageUrl) {
     return (
-      <Image src={imageUrl} alt={title} className={`w-full h-full object-cover block ${className}`} />
+      <Image src={imageUrl} alt={title} fill className={`object-cover block ${className}`} />
     );
   }
 
@@ -600,7 +600,7 @@ export default function PlanPage() {
                             : 'hover:bg-surface-container'
                         }`}
                       >
-                        <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 shadow-sm">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 shadow-sm relative">
                           <RecipeImage
                             title={meal.recipe.title}
                             imageUrl={meal.recipe.imageUrl}
