@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -45,6 +46,8 @@ export interface ImportSubStepEvent {
   message?: string;
 }
 
+type AlreadyEmittedError = Error & { alreadyEmitted?: boolean };
+
 type EmitEvent = ImportStepEvent | ImportSubStepEvent;
 type Emit = (event: EmitEvent) => void;
 
@@ -55,6 +58,7 @@ const ALL_STEPS: ImportStepName[] = [
   'group',
   'normalize',
   'canonicalize',
+  'duplicate-check',
   'save',
 ];
 
@@ -101,7 +105,10 @@ export class AdminService {
     this.jobSnapshots.delete(jobId);
   }
 
-  async startImportJob(url: string): Promise<{ jobId: string; url: string }> {
+  async startImportJob(
+    url: string,
+    force?: boolean,
+  ): Promise<{ jobId: string; url: string }> {
     const jobId = randomUUID();
     this.jobSnapshots.set(jobId, {
       jobId,
@@ -119,7 +126,7 @@ export class AdminService {
       jobStatus: 'queued',
     });
 
-    await this.importQueue.add('scrape', { jobId, url });
+    await this.importQueue.add('scrape', { jobId, url, force });
 
     return { jobId, url };
   }
@@ -535,12 +542,76 @@ Only include tags that genuinely apply. Return 2–6 tags maximum.`;
     });
   }
 
-  async createRecipe(dto: CreateRecipeDto, actorId: string) {
-    const recipe = await this.recipes.create(dto, false);
+  async createRecipe(dto: CreateRecipeDto, actorId: string, force?: boolean) {
+    const recipe = await this.recipes.create(dto, false, force ?? false);
     await this.writeAuditLog('recipe.create', 'recipe', recipe.id, actorId, {
       title: recipe.title,
     });
     return recipe;
+  }
+
+  async resumeImportJob(
+    jobId: string,
+    actorId: string,
+  ): Promise<{ id: string; title: string }> {
+    const snapshot = this.jobSnapshots.get(jobId);
+    if (!snapshot) throw new NotFoundException(`Import job ${jobId} not found`);
+    if (!snapshot.normalizedRecipe) {
+      throw new BadRequestException('No stored recipe data to resume from');
+    }
+
+    const normalized = snapshot.normalizedRecipe as CreateRecipeDto;
+
+    // Update snapshot: mark duplicate-check as done with force, then save
+    this.updateJobSnapshot(jobId, (s) => ({
+      ...s,
+      steps: s.steps.map((st) => {
+        if (st.step === 'duplicate-check') {
+          return { ...st, status: 'done', message: 'Force override applied' };
+        }
+        if (st.step === 'save') {
+          return { ...st, status: 'running', message: 'Saving recipe…' };
+        }
+        return st;
+      }),
+    }));
+
+    try {
+      const recipe = await this.recipes.create(normalized, false, true);
+
+      this.updateJobSnapshot(jobId, (s) => ({
+        ...s,
+        jobStatus: 'done',
+        result: { id: recipe.id, title: recipe.title },
+        steps: s.steps.map((st) =>
+          st.step === 'save'
+            ? { ...st, status: 'done', message: `"${recipe.title}" saved` }
+            : st,
+        ),
+      }));
+
+      await this.writeAuditLog('recipe.create', 'recipe', recipe.id, actorId, {
+        title: recipe.title,
+        source: 'import-resume',
+      });
+
+      return recipe;
+    } catch (err) {
+      this.updateJobSnapshot(jobId, (s) => ({
+        ...s,
+        jobStatus: 'error',
+        steps: s.steps.map((st) =>
+          st.step === 'save'
+            ? {
+                ...st,
+                status: 'error',
+                message: err instanceof Error ? err.message : String(err),
+              }
+            : st,
+        ),
+      }));
+      throw err;
+    }
   }
 
   async renameTag(id: string, name: string) {
@@ -600,7 +671,12 @@ Only include tags that genuinely apply. Return 2–6 tags maximum.`;
     }
   }
 
-  async executePipeline(url: string, emit: Emit) {
+  async executePipeline(
+    url: string,
+    force: boolean | undefined,
+    emit: Emit,
+    jobId?: string,
+  ): Promise<{ id: string; title: string }> {
     this.logger.log(`Importing recipe from URL: ${url}`);
 
     // Helper to emit a sub-step event
@@ -760,20 +836,108 @@ Only include tags that genuinely apply. Return 2–6 tags maximum.`;
       });
     }
 
-    emit({ step: 'save', status: 'running', message: 'Saving recipe…' });
-    sub('save', 'write', 'running', 'Writing to database…');
-    const recipe = await this.recipes.create(
-      normalized as CreateRecipeDto,
-      false,
-    );
-    sub('save', 'write', 'done', 'Written');
     emit({
-      step: 'save',
-      status: 'done',
-      message: `"${recipe.title}" saved`,
-      recipe: { id: recipe.id, title: recipe.title },
+      step: 'duplicate-check',
+      status: 'running',
+      message: 'Checking for duplicate recipes…',
     });
 
-    return recipe;
+    try {
+      const resolvedIngredientIds = await Promise.all(
+        normalized.ingredients.map(async (ingredient) => {
+          const resolvedIngredient = await this.catalog.resolveIngredient(
+            ingredient.name,
+          );
+
+          return resolvedIngredient.id;
+        }),
+      );
+
+      const duplicate = await this.recipes.findDuplicates(
+        resolvedIngredientIds,
+        normalized.title,
+      );
+
+      if (duplicate) {
+        if (force ?? false) {
+          emit({
+            step: 'duplicate-check',
+            status: 'done',
+            message: `Duplicate found for "${duplicate.recipe.title}" (${duplicate.similarity.toFixed(2)} similarity); continuing due to force override`,
+          });
+        } else {
+          const message = `Duplicate found: matches "${duplicate.recipe.title}" (${duplicate.similarity.toFixed(2)} similarity). Re-run with force to import anyway.`;
+
+          // Store normalized recipe for force-resume
+          if (jobId) {
+            this.updateJobSnapshot(jobId, (s) => ({
+              ...s,
+              normalizedRecipe: normalized,
+            }));
+          }
+
+          const error = new ConflictException({
+            message: 'A similar recipe already exists',
+            existingRecipe: {
+              id: duplicate.recipe.id,
+              title: duplicate.recipe.title,
+            },
+            similarity: duplicate.similarity,
+          }) as AlreadyEmittedError;
+
+          emit({
+            step: 'duplicate-check',
+            status: 'error',
+            message,
+          });
+
+          error.alreadyEmitted = true;
+          throw error;
+        }
+      } else {
+        emit({
+          step: 'duplicate-check',
+          status: 'done',
+          message: 'No duplicates found.',
+        });
+      }
+    } catch (err) {
+      if ((err as AlreadyEmittedError).alreadyEmitted) {
+        throw err;
+      }
+
+      emit({
+        step: 'duplicate-check',
+        status: 'error',
+        message: `Duplicate check failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      throw err;
+    }
+
+    emit({ step: 'save', status: 'running', message: 'Saving recipe…' });
+    sub('save', 'write', 'running', 'Writing to database…');
+    try {
+      const recipe = await this.recipes.create(
+        normalized as CreateRecipeDto,
+        false,
+        force ?? false,
+      );
+      sub('save', 'write', 'done', 'Written');
+      emit({
+        step: 'save',
+        status: 'done',
+        message: `"${recipe.title}" saved`,
+        recipe: { id: recipe.id, title: recipe.title },
+      });
+
+      return recipe;
+    } catch (err) {
+      emit({
+        step: 'save',
+        status: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
   }
 }

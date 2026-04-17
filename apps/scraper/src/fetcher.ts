@@ -93,16 +93,29 @@ export async function fetchPage(
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       const status = parseStatus(error);
+      console.log(
+        `  ⚠ Fetch attempt ${attempt} failed: ${error.message} (parsed status: ${status})`,
+      );
 
       if (BROWSER_FALLBACK_STATUSES.has(status)) {
         console.log(`  ⚠ HTTP ${status} — retrying with headless browser…`);
         onProgress('request', 'done', 'HTTP blocked');
         onProgress('browser', 'running', 'Launching browser…');
-        const html = await fetchWithBrowser(url);
-        onProgress('browser', 'done', 'Loaded via browser');
-        onProgress('capture', 'running', 'Extracting HTML…');
-        onProgress('capture', 'done', 'HTML captured');
-        return html;
+        try {
+          const html = await fetchWithBrowser(url);
+          onProgress('browser', 'done', 'Loaded via browser');
+          onProgress('capture', 'running', 'Extracting HTML…');
+          onProgress('capture', 'done', 'HTML captured');
+          return html;
+        } catch (browserErr) {
+          // Browser also failed - treat as retryable error
+          const browserError =
+            browserErr instanceof Error ? browserErr : new Error(String(browserErr));
+          console.log(`  ⚠ Browser failed: ${browserError.message}`);
+          lastError = browserError;
+          if (attempt < retries) await sleep(1000 * attempt);
+          continue; // Go to next retry attempt
+        }
       }
 
       if (NO_RETRY_STATUSES.has(status)) throw error;

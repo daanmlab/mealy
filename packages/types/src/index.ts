@@ -122,6 +122,7 @@ export interface AdminRecipeListItem {
 
 export interface ImportUrlDto {
   url: string;
+  force?: boolean;
 }
 
 export type ImportStepName =
@@ -131,6 +132,7 @@ export type ImportStepName =
   | 'group'
   | 'normalize'
   | 'canonicalize'
+  | 'duplicate-check'
   | 'save';
 
 export type ImportStepStatus = 'pending' | 'running' | 'done' | 'skipped' | 'error';
@@ -156,6 +158,7 @@ export interface ImportJobSnapshot {
   steps: ImportJobStep[];
   jobStatus: ImportJobStatus;
   result?: { id: string; title: string };
+  normalizedRecipe?: unknown; // Stored when duplicate-check fails for force-resume
 }
 
 // ─── Admin edit types ─────────────────────────────────────────────────────────
