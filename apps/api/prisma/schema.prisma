@@ -124,6 +124,8 @@ model User {
   dislikes       String[]
   onboardingDone Boolean            @default(false)
   isAdmin        Boolean            @default(false)
+  isGuest        Boolean            @default(false)
+  guestMergeToken String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

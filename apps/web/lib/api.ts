@@ -124,6 +124,10 @@ export const authApi = {
   // Used by the register page to create an account before calling signIn().
   register: (email: string, password: string, name?: string) =>
     api.post<{ id: string; email: string }>('/auth/register', { email, password, name }),
+  convertGuest: (email: string, password: string, name?: string) =>
+    api.post<{ id: string; email: string }>('/auth/convert-guest', { email, password, name }),
+  mergeGuest: (guestId: string, mergeToken?: string) =>
+    api.post<void>('/auth/merge-guest', { guestId, mergeToken }),
 };
 
 // ─── Users ────────────────────────────────────────────────────────────────────

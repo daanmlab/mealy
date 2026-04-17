@@ -9,7 +9,9 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginAsGuest: () => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
+  convertGuest: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -40,20 +42,31 @@ function AuthConsumer({ children }: { children: ReactNode }) {
 
   const loading = status === 'loading' || (status === 'authenticated' && !user);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const result = await signIn('credentials', { email, password, redirect: false });
-    if (!result || result.error) throw new Error(result?.error ?? 'Login failed');
-    const me = await usersApi.me();
-    setUser(me);
+  const signInAndLoad = useCallback(async (credentials: Record<string, string>) => {
+    const result = await signIn('credentials', { ...credentials, redirect: false });
+    if (!result || result.error) throw new Error(result?.error ?? 'Sign in failed');
+    setUser(await usersApi.me());
   }, []);
+
+  const login = useCallback(
+    (email: string, password: string) => signInAndLoad({ email, password }),
+    [signInAndLoad],
+  );
+
+  const loginAsGuest = useCallback(
+    () => signInAndLoad({ type: 'guest' }),
+    [signInAndLoad],
+  );
 
   const register = useCallback(async (email: string, password: string, name?: string) => {
     await authApi.register(email, password, name);
-    const result = await signIn('credentials', { email, password, redirect: false });
-    if (!result || result.error) throw new Error(result?.error ?? 'Sign in after register failed');
-    const me = await usersApi.me();
-    setUser(me);
-  }, []);
+    await signInAndLoad({ email, password });
+  }, [signInAndLoad]);
+
+  const convertGuest = useCallback(async (email: string, password: string, name?: string) => {
+    await authApi.convertGuest(email, password, name);
+    await signInAndLoad({ email, password });
+  }, [signInAndLoad]);
 
   const logout = useCallback(async () => {
     setUser(null);
@@ -69,7 +82,7 @@ function AuthConsumer({ children }: { children: ReactNode }) {
   void session;
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginAsGuest, register, convertGuest, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

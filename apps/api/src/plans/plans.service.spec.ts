@@ -34,6 +34,8 @@ const makeUser = (overrides: Partial<User> = {}): User => ({
   dislikes: [],
   onboardingDone: true,
   isAdmin: false,
+  isGuest: false,
+  guestMergeToken: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
