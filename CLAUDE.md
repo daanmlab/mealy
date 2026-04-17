@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) working in this repo.
 
 ## Project
 
-Mealy is a meal-planning app: discover recipes, build weekly meal plans, generate grocery lists, save favourites. Turborepo monorepo with npm workspaces.
+Mealy = meal-planning app: discover recipes, build weekly meal plans, generate grocery lists, save favourites. Turborepo monorepo, npm workspaces.
 
 ## Commands
 
@@ -30,7 +30,7 @@ npm run db:studio        # Open Prisma Studio
 docker-compose up -d     # PostgreSQL 16 (:5432) + Redis 7 (:6379)
 ```
 
-There is also `./start.sh` which does docker-compose up, starts both dev servers, and tears everything down on Ctrl+C.
+Also `./start.sh`: docker-compose up, starts both dev servers, tears down on Ctrl+C.
 
 ## Architecture
 
@@ -45,43 +45,43 @@ There is also `./start.sh` which does docker-compose up, starts both dev servers
 
 ### Auth flow
 
-NextAuth (v5 beta) handles sessions on the web side. JWT tokens are HS256-signed with the shared `AUTH_SECRET` so NestJS can validate them directly.
+NextAuth (v5 beta) handles web sessions. JWT tokens HS256-signed with shared `AUTH_SECRET`; NestJS validates directly.
 
-- `apps/web/proxy.ts` acts as Next.js middleware: intercepts `/api/*` requests, injects the NextAuth session JWT as a `Bearer` token, and rewrites to the NestJS backend. It also redirects unauthenticated users to `/login`.
-- `apps/web/lib/auth.ts` configures NextAuth with Credentials + Google providers. On Google sign-in, it calls the API's `upsert-oauth-user` endpoint (guarded by `INTERNAL_API_KEY`).
-- `apps/web/contexts/auth.tsx` provides `AuthProvider` / `useAuth()` which wraps NextAuth's `SessionProvider` and fetches the full user profile from the API.
+- `apps/web/proxy.ts`: Next.js middleware — intercepts `/api/*`, injects NextAuth session JWT as `Bearer` token, rewrites to NestJS backend; redirects unauthenticated to `/login`.
+- `apps/web/lib/auth.ts`: configures NextAuth with Credentials + Google. On Google sign-in, calls API's `upsert-oauth-user` endpoint (guarded by `INTERNAL_API_KEY`).
+- `apps/web/contexts/auth.tsx`: provides `AuthProvider` / `useAuth()` wrapping NextAuth's `SessionProvider`, fetches full user profile from API.
 
 ### API module conventions
 
-Each NestJS feature module follows: `feature.module.ts`, `feature.controller.ts`, `feature.service.ts`, `feature.dto.ts` (DTOs co-located). No repository layer -- `PrismaService` is injected directly. Guards in `auth/guards/`, strategies in `auth/strategies/`, decorators in `auth/decorators/`.
+Each NestJS feature module: `feature.module.ts`, `feature.controller.ts`, `feature.service.ts`, `feature.dto.ts` (DTOs co-located). No repository layer — `PrismaService` injected directly. Guards in `auth/guards/`, strategies in `auth/strategies/`, decorators in `auth/decorators/`.
 
-The API uses a global prefix `/api`, global `ValidationPipe` (whitelist + transform), `ThrottlerGuard`, and `helmet`.
+Global: prefix `/api`, `ValidationPipe` (whitelist + transform), `ThrottlerGuard`, `helmet`.
 
 ### Shared types
 
-`packages/types` is the single source of truth for the API-web contract. The API's tsconfig maps `@mealy/types` to the source file directly (not compiled output). This causes NestJS to output to `dist/apps/api/src/` -- the entry point is `"entryFile": "apps/api/src/main"` in `nest-cli.json`.
+`packages/types` = single source of truth for API-web contract. API's tsconfig maps `@mealy/types` to source directly (not compiled output) → NestJS outputs to `dist/apps/api/src/`; entry point `"entryFile": "apps/api/src/main"` in `nest-cli.json`.
 
 ### Web routing
 
 Next.js route groups:
-- `app/(auth)/` -- login, register, OAuth callback (own layout, no auth required)
-- `app/(app)/` -- plan, recipes, favorites, settings, onboarding, admin (own layout, auth required)
-- `app/api/[...proxy]/` -- API proxy route + NextAuth handlers at `app/api/auth/`
+- `app/(auth)/` — login, register, OAuth callback (own layout, no auth required)
+- `app/(app)/` — plan, recipes, favorites, settings, onboarding, admin (own layout, auth required)
+- `app/api/[...proxy]/` — API proxy route + NextAuth handlers at `app/api/auth/`
 
 ### Web API client
 
-`apps/web/lib/api.ts` provides typed `api.get<T>()`, `api.post<T>()`, `api.patch<T>()`, `api.delete<T>()`. All requests use `credentials: 'include'` and go through the Next.js proxy in production. On 401, fires a session-expired callback that redirects to login.
+`apps/web/lib/api.ts`: typed `api.get<T>()`, `api.post<T>()`, `api.patch<T>()`, `api.delete<T>()`. All use `credentials: 'include'`, go through Next.js proxy in production. On 401, fires session-expired callback → redirects to login.
 
 ### Database
 
-Schema at `apps/api/prisma/schema.prisma`. After any schema change, run `npm run db:generate` from `apps/api` before anything else.
+Schema at `apps/api/prisma/schema.prisma`. After schema change, run `npm run db:generate` from `apps/api` first.
 
 ### CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR to `main` and `develop`: lint, typecheck, API unit tests (with ephemeral Postgres + Redis), and production build.
+GitHub Actions (`.github/workflows/ci.yml`): runs on push/PR to `main` and `develop` — lint, typecheck, API unit tests (ephemeral Postgres + Redis), production build.
 
 ## Environment
 
 Two env files needed locally:
-- `apps/api/.env` (copy from `.env.example`) -- needs `DATABASE_URL`, `REDIS_URL`, `AUTH_SECRET`
-- `apps/web/.env.local` (copy from `.env.example`) -- needs `NEXT_PUBLIC_API_URL`, `AUTH_SECRET` (must match API)
+- `apps/api/.env` (copy from `.env.example`) — needs `DATABASE_URL`, `REDIS_URL`, `AUTH_SECRET`
+- `apps/web/.env.local` (copy from `.env.example`) — needs `NEXT_PUBLIC_API_URL`, `AUTH_SECRET` (must match API)

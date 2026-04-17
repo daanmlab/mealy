@@ -4,6 +4,7 @@ export interface JwtPayload {
   sub: string;
   email: string;
   isAdmin: boolean;
+  isGuest: boolean;
   iat?: number;
   exp?: number;
 }
@@ -57,6 +58,7 @@ export interface User {
   dislikes: string[];
   onboardingDone: boolean;
   isAdmin: boolean;
+  isGuest: boolean;
 }
 
 export interface UpdatePreferences {

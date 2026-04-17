@@ -71,6 +71,8 @@ const makeUser = (peopleCount: number): User => ({
   dislikes: [],
   onboardingDone: false,
   isAdmin: false,
+  isGuest: false,
+  guestMergeToken: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 });

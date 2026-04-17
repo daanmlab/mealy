@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user) router.replace('/plan');
+    if (!loading && user && !user.isGuest) router.replace('/plan');
   }, [loading, user, router]);
 
   return (

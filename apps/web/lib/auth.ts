@@ -51,8 +51,22 @@ export const {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        type: { label: 'Type', type: 'text' },
       },
       async authorize(credentials) {
+        // Guest login: create a guest user via the internal API endpoint.
+        if (credentials?.type === 'guest') {
+          const res = await fetch(`${API_URL}/api/auth/create-guest`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-internal-api-key': process.env.INTERNAL_API_KEY ?? '',
+            },
+          });
+          if (!res.ok) return null;
+          return res.json() as Promise<{ id: string; email: string; name: string | null; avatarUrl: string | null; isAdmin: boolean; isGuest: boolean; guestMergeToken?: string | null }>;
+        }
+
         if (!credentials?.email || !credentials?.password) return null;
         const res = await fetch(`${API_URL}/api/auth/validate-credentials`, {
           method: 'POST',
@@ -60,7 +74,7 @@ export const {
           body: JSON.stringify({ email: credentials.email, password: credentials.password }),
         });
         if (!res.ok) return null;
-        return res.json() as Promise<{ id: string; email: string; name: string | null; avatarUrl: string | null; isAdmin: boolean }>;
+        return res.json() as Promise<{ id: string; email: string; name: string | null; avatarUrl: string | null; isAdmin: boolean; isGuest: boolean; guestMergeToken?: string | null }>;
       },
     }),
     Google({
@@ -116,6 +130,8 @@ export const {
         token.sub = user.id;
         token.email = user.email;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
+        token.isGuest = (user as { isGuest?: boolean }).isGuest ?? false;
+        token.guestMergeToken = (user as { guestMergeToken?: string | null }).guestMergeToken ?? undefined;
       }
       return token;
     },
@@ -123,6 +139,8 @@ export const {
     session({ session, token }) {
       session.user.id = token.id as string;
       session.user.isAdmin = token.isAdmin as boolean;
+      session.user.isGuest = token.isGuest as boolean;
+      session.user.guestMergeToken = token.guestMergeToken as string | undefined;
       return session;
     },
   },

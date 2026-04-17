@@ -82,6 +82,8 @@ const USER: User = {
   dislikes: [],
   onboardingDone: false,
   isAdmin: false,
+  isGuest: false,
+  guestMergeToken: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

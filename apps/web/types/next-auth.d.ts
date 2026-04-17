@@ -4,6 +4,7 @@ import 'next-auth/jwt';
 declare module 'next-auth' {
   interface User {
     isAdmin?: boolean;
+    isGuest?: boolean;
   }
 
   interface Session {
@@ -13,6 +14,8 @@ declare module 'next-auth' {
       name?: string | null;
       image?: string | null;
       isAdmin: boolean;
+      isGuest: boolean;
+      guestMergeToken?: string;
     };
   }
 }
@@ -21,5 +24,7 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id?: string;
     isAdmin?: boolean;
+    isGuest?: boolean;
+    guestMergeToken?: string;
   }
 }

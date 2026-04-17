@@ -33,3 +33,25 @@ export class UpsertOAuthUserDto {
   @IsOptional()
   avatarUrl?: string;
 }
+
+export class ConvertGuestDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+}
+
+export class MergeGuestDto {
+  @IsString()
+  guestId: string;
+
+  @IsString()
+  @IsOptional()
+  mergeToken?: string;
+}
