@@ -14,7 +14,6 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -121,22 +120,6 @@ export default function RegisterPage() {
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
-          </div>
-
-          <div className="flex items-center gap-3 px-1">
-            <input
-              id="terms"
-              type="checkbox"
-              checked={termsAccepted}
-              onChange={(e) => setTermsAccepted(e.target.checked)}
-              className="w-5 h-5 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 bg-surface-container-low"
-            />
-            <label className="text-sm text-on-surface-variant" htmlFor="terms">
-              I agree to the{' '}
-              <a href="#" className="text-secondary font-semibold hover:underline">Terms of Service</a>
-              {' '}and{' '}
-              <a href="#" className="text-secondary font-semibold hover:underline">Privacy Policy</a>
-            </label>
           </div>
 
           {error && <p className="text-error text-sm px-1">{error}</p>}
