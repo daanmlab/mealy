@@ -16,13 +16,19 @@ const prisma = new PrismaClient({ adapter });
 function extractImage(html: string): string | null {
   // 1. og:image meta tag
   const og =
-    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ??
-    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    html.match(
+      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+    ) ??
+    html.match(
+      /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+    );
   if (og?.[1]) return og[1];
 
   // 2. JSON-LD Recipe image field
   const ldBlocks = [
-    ...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi),
+    ...html.matchAll(
+      /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+    ),
   ];
   for (const block of ldBlocks) {
     try {
@@ -70,7 +76,9 @@ async function fetchHtml(url: string): Promise<string | null> {
     }
     return await res.text();
   } catch (err) {
-    console.warn(`  ⚠ Fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(
+      `  ⚠ Fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
     return null;
   }
 }
@@ -124,7 +132,10 @@ async function main() {
       continue;
     }
 
-    await prisma.recipe.update({ where: { id: recipe.id }, data: { imageUrl } });
+    await prisma.recipe.update({
+      where: { id: recipe.id },
+      data: { imageUrl },
+    });
     updated++;
     process.stdout.write('✓\n');
   }
