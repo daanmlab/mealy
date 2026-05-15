@@ -9,7 +9,23 @@ export async function proxy(request: NextRequest) {
   const secureCookie = request.nextUrl.protocol === 'https:';
 
   // NextAuth handles its own routes — pass through untouched.
-  if (pathname.startsWith('/api/auth/')) {
+  // Only match known NextAuth actions; other /api/auth/* paths (e.g. register)
+  // are NestJS endpoints and must be proxied to the backend below.
+  const NEXTAUTH_ACTIONS = [
+    'signin',
+    'signout',
+    'callback',
+    'session',
+    'csrf',
+    'providers',
+    'error',
+    'verify-request',
+    'new-user',
+  ];
+  const isNextAuthRoute = NEXTAUTH_ACTIONS.some((action) =>
+    pathname.startsWith(`/api/auth/${action}`),
+  );
+  if (isNextAuthRoute) {
     return NextResponse.next();
   }
 
@@ -54,5 +70,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Run on all routes except static assets and public files.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest|json|txt|xml|woff|woff2|ttf)).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest|json|txt|xml|woff|woff2|ttf)).*)',
+  ],
 };
