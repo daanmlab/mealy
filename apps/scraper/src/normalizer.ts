@@ -14,6 +14,7 @@ export interface NormalizedRecipe {
   cookTimeMinutes: number;
   servings: number;
   sourceUrl?: string;
+  imageUrl?: string;
   tagSlugs: string[];
   steps: { order: number; text: string }[];
   ingredients: NormalizedIngredient[];
@@ -289,6 +290,7 @@ export function normalize(raw: RawRecipe): NormalizedRecipe {
     cookTimeMinutes: Math.max(1, Math.min(600, raw.cookTimeMinutes)),
     servings: Math.max(1, Math.min(50, raw.servings)),
     sourceUrl: raw.sourceUrl,
+    imageUrl: raw.imageUrl,
     tagSlugs: inferTags(raw),
     steps: raw.steps.map((text, i) => ({ order: i + 1, text: text.trim() })),
     ingredients: raw.ingredients.map((ing) => ({

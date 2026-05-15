@@ -430,7 +430,7 @@ If the overlap score is 1.00, respond with isDuplicate=true. Otherwise, keep the
           description: dto.description,
           cookTimeMinutes: dto.cookTimeMinutes,
           servings: dto.servings,
-          imageUrl: null, // TODO: handle image upload and set real URL
+          imageUrl: dto.imageUrl ?? null,
           sourceUrl: dto.sourceUrl ?? null,
           steps: dto.steps,
           isActive,

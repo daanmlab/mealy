@@ -177,9 +177,12 @@ export class PlansService {
 
     const lockedMeals = plan.meals.filter((m) => m.isLocked);
     const unlockedMeals = plan.meals.filter((m) => !m.isLocked);
-    const unlockedCount = unlockedMeals.length;
+    const isEmpty = plan.meals.length === 0;
 
-    if (unlockedCount === 0) return plan;
+    // If all meals are locked (and plan isn't empty), nothing to do
+    if (!isEmpty && unlockedMeals.length === 0) return plan;
+
+    const slotsToFill = isEmpty ? user.mealsPerWeek : unlockedMeals.length;
 
     const goalTags = this.goalToTags(user.goal);
     // Exclude all currently-in-plan recipe IDs (locked + unlocked) from suggestions
@@ -187,24 +190,35 @@ export class PlansService {
     const selected = await this.fetchVariedSuggestions(
       excludeIds,
       goalTags,
-      unlockedCount,
+      slotsToFill,
       lockedMeals.map((m) => m.recipeId),
       this.cookTimeLimit(user.cookTime),
       user.dislikes,
     );
-    if (selected.length < unlockedCount)
+    if (selected.length < slotsToFill)
       throw new BadRequestException(
         'Not enough recipes available to regenerate',
       );
 
-    await Promise.all(
-      unlockedMeals.map((meal, i) =>
-        this.prisma.weeklyPlanMeal.update({
-          where: { id: meal.id },
-          data: { recipeId: selected[i].id },
-        }),
-      ),
-    );
+    if (isEmpty) {
+      const days = WEEKDAYS.slice(0, slotsToFill);
+      await this.prisma.weeklyPlanMeal.createMany({
+        data: days.map((day, i) => ({
+          weeklyPlanId: planId,
+          day,
+          recipeId: selected[i].id,
+        })),
+      });
+    } else {
+      await Promise.all(
+        unlockedMeals.map((meal, i) =>
+          this.prisma.weeklyPlanMeal.update({
+            where: { id: meal.id },
+            data: { recipeId: selected[i].id },
+          }),
+        ),
+      );
+    }
 
     return this.prisma.weeklyPlan.findUniqueOrThrow({
       where: { id: planId },

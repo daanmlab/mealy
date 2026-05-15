@@ -94,6 +94,8 @@ export default function PlanPage() {
   const [unlocking, setUnlocking] = useState(false);
   const [swapTarget, setSwapTarget] = useState<PlanMeal | null>(null);
   const [selected, setSelected] = useState<PlanMeal | null>(null);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
   const pendingDayRef = useRef<string | null>(null);
 
   const loadPlan = useCallback(async (offset: number) => {
@@ -196,13 +198,25 @@ export default function PlanPage() {
 
   async function handleRegenerate() {
     if (!plan) return;
-    setLoading(true);
+    setRegenerateError(null);
+    setRegenerating(true);
     try {
       const updated = await plansApi.regenerate(plan.id);
       setPlan(updated);
       setSelected(updated.meals[0] ?? null);
+    } catch (err) {
+      let msg = 'Failed to regenerate meals. Please try again.';
+      if (err instanceof Error) {
+        try {
+          const parsed = JSON.parse(err.message) as { message?: string };
+          if (parsed.message) msg = parsed.message;
+        } catch {
+          msg = err.message || msg;
+        }
+      }
+      setRegenerateError(msg);
     } finally {
-      setLoading(false);
+      setRegenerating(false);
     }
   }
 
@@ -231,7 +245,7 @@ export default function PlanPage() {
                 key={day}
                 onClick={() => meal && setSelected(meal)}
                 disabled={!meal}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                   isSelected
                     ? 'bg-surface-container-lowest shadow-sm'
                     : meal
@@ -239,6 +253,16 @@ export default function PlanPage() {
                       : 'text-outline/30 cursor-not-allowed'
                 }`}
               >
+                {/* Thumbnail */}
+                <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-surface-container-high">
+                  {meal ? (
+                    <RecipeImage title={meal.recipe.title} imageUrl={meal.recipe.imageUrl} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <UtensilsCrossed className="w-4 h-4 text-outline/20" />
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-col items-start min-w-0 flex-1">
                   <span className={`font-semibold text-xs ${isSelected ? 'text-secondary' : ''}`}>
                     {DAY_LABELS_FULL[day]}
@@ -442,13 +466,19 @@ export default function PlanPage() {
 
             {/* Regenerate Button */}
             {!isConfirmed && (
-              <button
-                onClick={handleRegenerate}
-                className="w-full py-4 border border-dashed border-outline-variant rounded-xl text-sm text-on-surface-variant hover:border-secondary hover:text-secondary transition-colors flex items-center justify-center gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Regenerate all meals
-              </button>
+              <div className="space-y-2">
+                {regenerateError && (
+                  <p className="text-sm text-error text-center px-2">{regenerateError}</p>
+                )}
+                <button
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  className="w-full py-4 border border-dashed border-outline-variant rounded-xl text-sm text-on-surface-variant hover:border-secondary hover:text-secondary transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RotateCcw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+                  {regenerating ? 'Regenerating…' : 'Regenerate all meals'}
+                </button>
+              </div>
             )}
           </>
         )}
