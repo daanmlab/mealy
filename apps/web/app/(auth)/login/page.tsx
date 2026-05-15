@@ -41,7 +41,7 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-3xl font-extrabold tracking-tighter text-primary mb-1">Mealy</h1>
-          <p className="text-on-surface-variant font-medium text-sm">The Culinary Atelier</p>
+          <p className="text-on-surface-variant font-medium text-sm">Meal planning made simple</p>
         </div>
 
         <div className="mb-8">

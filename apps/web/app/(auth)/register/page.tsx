@@ -47,9 +47,9 @@ export default function RegisterPage() {
         />
         <div className="absolute inset-0 bg-primary/20" />
         <div className="absolute bottom-12 left-12 right-12 p-8 glass rounded-xl">
-          <span className="text-primary font-bold text-sm tracking-widest mb-2 block">THE CULINARY ATELIER</span>
-          <h2 className="text-3xl font-extrabold text-on-surface leading-tight">Elevate your daily dining to an art form.</h2>
-          <p className="text-on-surface-variant mt-3 text-sm leading-relaxed">Join a community where nutrition meets curated editorial design, making every meal a masterpiece.</p>
+          <span className="text-primary font-bold text-sm tracking-widest mb-2 block">MEALY</span>
+          <h2 className="text-3xl font-extrabold text-on-surface leading-tight">Your weekly meals, planned in minutes.</h2>
+          <p className="text-on-surface-variant mt-3 text-sm leading-relaxed">Discover recipes, build meal plans, and generate grocery lists.<br/> All in one place.</p>
         </div>
       </section>
 
@@ -73,7 +73,7 @@ export default function RegisterPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Julianne Voisier"
+                placeholder="Jane Smith"
                 className="w-full pl-11 pr-4 py-3.5 bg-surface-container-low border-none focus:ring-2 focus:ring-secondary/20 focus:bg-surface-container-lowest transition-all rounded-xl text-on-surface placeholder:text-outline/50 outline-none"
               />
             </div>
@@ -91,7 +91,7 @@ export default function RegisterPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="julianne@atelier.com"
+                placeholder="jane@example.com"
                 className="w-full pl-11 pr-4 py-3.5 bg-surface-container-low border-none focus:ring-2 focus:ring-secondary/20 focus:bg-surface-container-lowest transition-all rounded-xl text-on-surface placeholder:text-outline/50 outline-none"
               />
             </div>
