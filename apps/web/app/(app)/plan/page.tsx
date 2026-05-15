@@ -460,7 +460,7 @@ export default function PlanPage() {
             {featuredMeal && (
               <section className="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-[0_12px_32px_rgba(28,28,24,0.06)]">
                 <div className="grid grid-cols-1 md:grid-cols-2">
-                  <div className="h-64 md:h-80 relative overflow-hidden">
+                  <div className="min-h-64 md:min-h-80 relative overflow-hidden">
                     <RecipeImage
                       title={featuredMeal.recipe.title}
                       imageUrl={featuredMeal.recipe.imageUrl}
