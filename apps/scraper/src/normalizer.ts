@@ -13,7 +13,6 @@ export interface NormalizedRecipe {
   description: string;
   cookTimeMinutes: number;
   servings: number;
-  imageUrl?: string;
   sourceUrl?: string;
   tagSlugs: string[];
   steps: { order: number; text: string }[];
@@ -289,7 +288,6 @@ export function normalize(raw: RawRecipe): NormalizedRecipe {
     description: raw.description.trim(),
     cookTimeMinutes: Math.max(1, Math.min(600, raw.cookTimeMinutes)),
     servings: Math.max(1, Math.min(50, raw.servings)),
-    imageUrl: raw.imageUrl,
     sourceUrl: raw.sourceUrl,
     tagSlugs: inferTags(raw),
     steps: raw.steps.map((text, i) => ({ order: i + 1, text: text.trim() })),

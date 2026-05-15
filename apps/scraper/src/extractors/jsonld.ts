@@ -8,7 +8,6 @@ interface SchemaOrgRecipe {
   cookTime?: string;
   totalTime?: string;
   recipeYield?: string | string[];
-  image?: string | (string | { url?: string })[] | { url?: string };
   keywords?: string | string[];
   recipeInstructions?: unknown[];
   recipeIngredient?: string[];
@@ -265,17 +264,6 @@ export function extractFromJsonLd(html: string): RawRecipe | null {
       : String(servingsRaw ?? '2');
     const servings = parseInt(servingsStr, 10) || 2;
 
-    const imageRaw = schema.image;
-    const resolveImageUrl = (val: unknown): string | undefined => {
-      if (typeof val === 'string') return val;
-      if (typeof val === 'object' && val !== null)
-        return (val as Record<string, string>).url ?? undefined;
-      return undefined;
-    };
-    const imageUrl: string | undefined = Array.isArray(imageRaw)
-      ? resolveImageUrl(imageRaw[0])
-      : resolveImageUrl(imageRaw);
-
     const keywordsRaw = schema.keywords;
     const keywords: string[] =
       typeof keywordsRaw === 'string'
@@ -301,7 +289,6 @@ export function extractFromJsonLd(html: string): RawRecipe | null {
       description,
       cookTimeMinutes: cookTimeMinutes || 30,
       servings,
-      imageUrl,
       keywords,
       steps,
       ingredients,

@@ -12,7 +12,6 @@ const FixedRecipeSchema = z.object({
   description: z.string(),
   cookTimeMinutes: z.number(),
   servings: z.number(),
-  imageUrl: z.string().optional(),
   keywords: z.array(z.string()),
   steps: z.array(z.string()),
   ingredients: z.array(
@@ -150,7 +149,6 @@ Return ONLY a valid JSON object matching the original structure:
   "description": "string",
   "cookTimeMinutes": number,
   "servings": number,
-  "imageUrl": "string or omit",
   "keywords": ["string", ...],
   "steps": ["step text", ...],
   "ingredients": [{ "name": "...", "amount": number, "unit": "..." }, ...]
@@ -180,10 +178,7 @@ ${JSON.stringify(raw, null, 2)}`;
 
     prog('fix', 'done');
     return {
-      recipe: {
-        ...result.data,
-        imageUrl: result.data.imageUrl ?? raw.imageUrl,
-      },
+      recipe: result.data,
       wasFixed: true,
       issues,
     };

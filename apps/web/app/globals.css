@@ -36,6 +36,7 @@
   --color-surface-container-low: #f6f3ec;
   --color-surface-container: #f0eee7;
   --color-container-high: #ebe8e1;
+  --color-surface-container-high: #ebe8e1;
   --color-surface-container-highest: #e5e2db;
   --color-surface-variant: #e5e2db;
   --color-on-surface: #1c1c18;
@@ -114,9 +115,10 @@
   .headline {
     font-family: var(--font-headline);
   }
-}
+  button {
+    cursor: pointer;
+  }
 
-@layer utilities {
   /* Glassmorphism */
   .glass {
     backdrop-filter: blur(20px);

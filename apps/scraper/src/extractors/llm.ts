@@ -14,7 +14,6 @@ const RawRecipeSchema = z.object({
   description: z.string(),
   cookTimeMinutes: z.number(),
   servings: z.number(),
-  imageUrl: z.string().optional(),
   keywords: z.array(z.string()),
   steps: z.array(z.string()),
   ingredients: z.array(RawIngredientSchema),
@@ -64,7 +63,6 @@ export async function extractWithLlm(
   "description": "string (1-2 sentences)",
   "cookTimeMinutes": number,
   "servings": number,
-  "imageUrl": "string or omit",
   "keywords": ["string", ...],
   "steps": ["step text", ...],
   "ingredients": [

@@ -79,9 +79,10 @@ export class CreateRecipeDto {
   @Max(50)
   servings!: number;
 
-  @IsOptional()
-  @IsUrl()
-  imageUrl?: string;
+  // TODO: Implement image upload and remove imageUrl
+  // @IsOptional()
+  // @IsUrl()
+  // imageUrl?: string;
 
   @IsOptional()
   @IsUrl()
