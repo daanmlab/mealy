@@ -7,23 +7,17 @@ import Image from 'next/image';
 import {
   ChevronLeft,
   ChevronRight,
-  Calendar,
-  ShoppingBasket,
   Lock,
   Unlock,
   Heart,
   ArrowRightLeft,
   Clock,
   Users,
-  Star,
-  ArrowRight,
-  List,
   UtensilsCrossed,
   RotateCcw,
 } from 'lucide-react';
 import { plansApi, favoritesApi, type Plan, type PlanMeal, type FavoriteRecipe } from '@/lib/api';
-import { MonthlyCalendar } from '@/components/MonthlyCalendar';
-import { useWeekStartDay } from '@/hooks/useWeekStartDay';
+
 import SwapPickerModal from '@/components/SwapPickerModal';
 
 const DAY_LABELS_FULL: Record<string, string> = {
@@ -36,15 +30,7 @@ const DAY_LABELS_FULL: Record<string, string> = {
   sunday: 'Sunday',
 };
 
-const DAY_BY_INDEX = [
-  'sunday',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-] as const;
+const ORDERED_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 function getWeekStart(offset = 0): Date {
   const now = new Date();
@@ -60,43 +46,12 @@ function toISODate(date: Date): string {
   return date.toISOString().split('T')[0] as string;
 }
 
-function dateToWeekOffset(monday: Date): number {
-  const thisMonday = getWeekStart(0);
-  const diff = monday.getTime() - thisMonday.getTime();
-  return Math.round(diff / (7 * 24 * 60 * 60 * 1000));
-}
-
-function getWeeksInMonth(year: number, month: number): Date[] {
-  const weeks: Date[] = [];
-  const firstOfMonth = new Date(year, month, 1);
-  const lastOfMonth = new Date(year, month + 1, 0);
-
-  const cursor = new Date(firstOfMonth);
-  const day = cursor.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  cursor.setDate(cursor.getDate() + diff);
-  cursor.setHours(0, 0, 0, 0);
-
-  while (cursor <= lastOfMonth) {
-    weeks.push(new Date(cursor));
-    cursor.setDate(cursor.getDate() + 7);
-  }
-  return weeks;
-}
-
 function weekLabel(offset: number): string {
   if (offset === 0) return 'This week';
   if (offset === 1) return 'Next week';
   if (offset === -1) return 'Last week';
   if (offset > 1) return `In ${offset} weeks`;
   return `${Math.abs(offset)} weeks ago`;
-}
-
-function getFirstMondayOfMonth(year: number, month: number): Date {
-  const d = new Date(year, month, 1);
-  while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
-  d.setHours(0, 0, 0, 0);
-  return d;
 }
 
 function RecipeImage({
@@ -129,7 +84,6 @@ function RecipeImage({
 
 export default function PlanPage() {
   const router = useRouter();
-  const { weekStartsOn } = useWeekStartDay();
   const [weekOffset, setWeekOffset] = useState(0);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -141,27 +95,6 @@ export default function PlanPage() {
   const [swapTarget, setSwapTarget] = useState<PlanMeal | null>(null);
   const [selected, setSelected] = useState<PlanMeal | null>(null);
   const pendingDayRef = useRef<string | null>(null);
-
-  const today = new Date();
-  const [calYear, setCalYear] = useState(today.getFullYear());
-  const [calMonth, setCalMonth] = useState(today.getMonth());
-  const [monthPlans, setMonthPlans] = useState<Record<string, Plan | null>>({});
-
-  const loadMonthPlans = useCallback(async (year: number, month: number) => {
-    const weeks = getWeeksInMonth(year, month);
-    const results = await Promise.all(
-      weeks.map(async (w) => {
-        const iso = toISODate(w);
-        const plan = await plansApi.current(iso);
-        return [iso, plan] as [string, Plan | null];
-      }),
-    );
-    setMonthPlans((prev) => {
-      const next = { ...prev };
-      for (const [iso, plan] of results) next[iso] = plan;
-      return next;
-    });
-  }, []);
 
   const loadPlan = useCallback(async (offset: number) => {
     setLoading(true);
@@ -181,9 +114,6 @@ export default function PlanPage() {
           current?.meals[0] ??
           null,
       );
-      if (current) {
-        setMonthPlans((prev) => ({ ...prev, [weekStart]: current }));
-      }
     } catch {
       setError('Failed to load your plan. Please refresh the page.');
     } finally {
@@ -194,21 +124,6 @@ export default function PlanPage() {
   useEffect(() => {
     loadPlan(weekOffset);
   }, [loadPlan, weekOffset]);
-
-  useEffect(() => {
-    loadMonthPlans(calYear, calMonth);
-  }, [loadMonthPlans, calYear, calMonth]);
-
-  useEffect(() => {
-    const weekDate = getWeekStart(weekOffset);
-    const weekYear = weekDate.getFullYear();
-    const weekMonth = weekDate.getMonth();
-    if (weekYear !== calYear || weekMonth !== calMonth) {
-      setCalYear(weekYear);
-      setCalMonth(weekMonth);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekOffset]);
 
   useEffect(() => {
     favoritesApi
@@ -286,8 +201,6 @@ export default function PlanPage() {
       const updated = await plansApi.regenerate(plan.id);
       setPlan(updated);
       setSelected(updated.meals[0] ?? null);
-      const weekStartISO = toISODate(getWeekStart(weekOffset));
-      setMonthPlans((prev) => ({ ...prev, [weekStartISO]: updated }));
     } finally {
       setLoading(false);
     }
@@ -300,124 +213,98 @@ export default function PlanPage() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   const weekRangeLabel = `${weekStart.toLocaleDateString('en-NL', { day: 'numeric', month: 'short' })} – ${weekEnd.toLocaleDateString('en-NL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
-  function handleWeekSelect(monday: Date, day: Date) {
-    const dayName = DAY_BY_INDEX[day.getDay()] ?? null;
-    const offset = dateToWeekOffset(monday);
-    if (offset === weekOffset) {
-      const meal = plan?.meals.find((m) => m.day === dayName);
-      if (meal) setSelected(meal);
-    } else {
-      pendingDayRef.current = dayName;
-      setWeekOffset(offset);
-    }
-  }
-
-  function handleMonthChange(year: number, month: number) {
-    setCalYear(year);
-    setCalMonth(month);
-    setWeekOffset(dateToWeekOffset(getFirstMondayOfMonth(year, month)));
-  }
-
-  // Calculate stats
-  const plannedDays = plan?.meals.length ?? 0;
-  const ingredientsCount =
-    plan?.meals.reduce((acc, meal) => acc + meal.recipe.ingredients.length, 0) ?? 0;
-
   // Get featured recipe (first meal or selected)
   const featuredMeal = selected ?? plan?.meals[0];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* Left Column: Calendar & Weekly Summary */}
-      <div className="lg:col-span-4 flex flex-col gap-6">
-        {/* Calendar */}
-        <div className="hidden lg:block">
-          <MonthlyCalendar
-            year={calYear}
-            month={calMonth}
-            selectedWeekStart={getWeekStart(weekOffset)}
-            monthPlans={monthPlans}
-            onWeekSelect={handleWeekSelect}
-            onMonthChange={handleMonthChange}
-            weekStartsOn={weekStartsOn}
-          />
+      {/* Left Column: Day tabs + actions */}
+      <div className="lg:col-span-3 flex flex-col gap-4">
+
+        {/* Vertical day tabs */}
+        <div className="bg-surface-container rounded-2xl p-1.5 flex flex-col gap-1">
+          {ORDERED_DAYS.map((day) => {
+            const meal = plan?.meals.find((m) => m.day === day);
+            const isSelected = selected?.day === day;
+            return (
+              <button
+                key={day}
+                onClick={() => meal && setSelected(meal)}
+                disabled={!meal}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${
+                  isSelected
+                    ? 'bg-surface-container-lowest shadow-sm'
+                    : meal
+                      ? 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                      : 'text-outline/30 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex flex-col items-start min-w-0 flex-1">
+                  <span className={`font-semibold text-xs ${isSelected ? 'text-secondary' : ''}`}>
+                    {DAY_LABELS_FULL[day]}
+                  </span>
+                  {meal ? (
+                    <span className={`truncate text-xs ${isSelected ? 'text-primary font-medium' : 'text-on-surface-variant'}`}>
+                      {meal.recipe.title}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-outline/40">
+                      No meal &middot;{' '}
+                      <Link href="/settings" className="text-secondary/70 hover:text-secondary hover:underline">
+                        adjust in settings
+                      </Link>
+                    </span>
+                  )}
+                </div>
+                {meal?.isLocked && <Lock className="w-3 h-3 text-secondary shrink-0" />}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Mobile Week Navigation */}
-        <div className="lg:hidden bg-surface-container-lowest rounded-xl shadow-[0_12px_32px_rgba(28,28,24,0.06)] p-4">
-          <div className="flex items-center justify-between">
+        {/* Actions */}
+        <div className="flex flex-col gap-3">
+          {!isConfirmed ? (
             <button
-              onClick={() => setWeekOffset((o) => o - 1)}
-              className="p-2 hover:bg-surface-container rounded-full transition-colors"
+              onClick={handleConfirm}
+              disabled={confirming}
+              className="w-full py-3 px-6 btn-primary-gradient text-on-primary font-bold rounded-full shadow-lg active:scale-95 transition-transform disabled:opacity-50"
             >
-              <ChevronLeft className="w-5 h-5 text-on-surface-variant" />
+              {confirming ? 'Confirming…' : 'Confirm week'}
             </button>
-            <div className="text-center">
-              <h2 className="text-lg font-bold text-primary font-headline">
-                {weekLabel(weekOffset)}
-              </h2>
-              <p className="text-sm text-on-surface-variant">{weekRangeLabel}</p>
-            </div>
+          ) : (
             <button
-              onClick={() => setWeekOffset((o) => o + 1)}
-              className="p-2 hover:bg-surface-container rounded-full transition-colors"
+              onClick={() => setShowUnlockDialog(true)}
+              className="w-full py-3 px-6 btn-primary-gradient text-on-primary font-bold rounded-full shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
             >
-              <ChevronRight className="w-5 h-5 text-on-surface-variant" />
+              <Unlock className="w-4 h-4" />
+              Unlock
             </button>
-          </div>
-        </div>
-
-        {/* Meal Overview */}
-        <section className="bg-surface-container-low rounded-xl p-6 shadow-[0_12px_32px_rgba(28,28,24,0.06)]">
-          <h3 className="text-xl font-bold text-primary font-headline mb-6">Meal Overview</h3>
-          <div className="flex flex-col gap-4">
-            <div className="flex justify-between items-center p-4 bg-surface-container-lowest rounded-xl">
-              <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-secondary" />
-                <span className="text-sm font-medium text-on-surface">Planned Days</span>
-              </div>
-              <span className="text-lg font-bold text-primary">{plannedDays}/7</span>
-            </div>
-            <div className="flex justify-between items-center p-4 bg-surface-container-lowest rounded-xl">
-              <div className="flex items-center gap-3">
-                <ShoppingBasket className="w-5 h-5 text-secondary" />
-                <span className="text-sm font-medium text-on-surface">Ingredients</span>
-              </div>
-              <span className="text-lg font-bold text-primary">{ingredientsCount}</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            {!isConfirmed ? (
-              <button
-                onClick={handleConfirm}
-                disabled={confirming}
-                className="w-full py-4 px-6 btn-primary-gradient text-on-primary font-bold rounded-full shadow-lg active:scale-95 transition-transform disabled:opacity-50"
-              >
-                {confirming ? 'Confirming…' : 'Confirm'}
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowUnlockDialog(true)}
-                className="w-full py-4 px-6 btn-primary-gradient text-on-primary font-bold rounded-full shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
-              >
-                <Unlock className="w-4 h-4" />
-                Unlock
-              </button>
-            )}
+          )}
+          <div className="relative group/grocery w-full">
             <button
               onClick={() => plan && router.push(`/plan/${plan.id}/grocery`)}
-              className="w-full py-4 px-6 bg-surface-container-high text-on-surface font-bold rounded-full active:scale-95 transition-transform hover:bg-surface-container"
+              disabled={!isConfirmed}
+              className="w-full py-3 px-6 bg-surface-container-high text-on-surface font-bold rounded-full active:scale-95 transition-transform hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               Grocery list
             </button>
+            {!isConfirmed && (
+              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/grocery:opacity-100 transition-opacity duration-150 z-10">
+                <div className="bg-inverse-surface text-inverse-on-surface text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
+                  Confirm the week first
+                </div>
+                <div className="w-2 h-2 bg-inverse-surface rotate-45 mx-auto -mt-1" />
+              </div>
+            )}
           </div>
-        </section>
+        </div>
       </div>
 
-      {/* Right Column: This Week & Featured Recipe */}
-      <div className="lg:col-span-8 space-y-8">
+      {/* Right Column: Header + Featured Recipe */}
+      <div className="lg:col-span-9 space-y-8">
         {/* Header */}
-        <header className="hidden lg:flex flex-col gap-2">
+        <header className="flex flex-col gap-2">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setWeekOffset((o) => o - 1)}
@@ -552,87 +439,6 @@ export default function PlanPage() {
                 </div>
               </section>
             )}
-
-            {/* Bento Grid: Ingredients + Week at a Glance */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:auto-rows-fr">
-              {/* Ingredients List */}
-              {featuredMeal && (
-                <section className="bg-surface-container-low rounded-2xl p-6 flex flex-col min-h-[400px]">
-                  <h3 className="text-xl font-bold text-primary font-headline mb-4 flex items-center gap-2 flex-shrink-0">
-                    <List className="w-5 h-5" />
-                    Ingredients
-                  </h3>
-                  <ul className="space-y-3 flex-1 overflow-y-auto pr-2">
-                    {featuredMeal.recipe.ingredients.map((ri) => (
-                      <li
-                        key={ri.id}
-                        className="flex items-start gap-3 pb-3 border-b border-outline-variant/20 last:border-0"
-                      >
-                        <span className="w-2 h-2 rounded-full bg-secondary mt-1.5 flex-shrink-0" />
-                        <span className="text-sm text-on-surface">
-                          <span className="font-semibold">
-                            {ri.amount} {ri.unit?.symbol || ''}
-                          </span>{' '}
-                          {ri.ingredient.name}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-
-              {/* Week at a Glance */}
-              <section className="flex flex-col gap-4">
-                <h3 className="text-xl font-bold text-primary font-headline flex items-center gap-2">
-                  <UtensilsCrossed className="w-5 h-5" />
-                  Week at a Glance
-                </h3>
-                <div className="space-y-3">
-                  {plan.meals.map((meal) => {
-                    const isSelected = selected?.id === meal.id;
-                    return (
-                      <div
-                        key={meal.id}
-                        onClick={() => setSelected(meal)}
-                        className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-secondary-container/20 border border-secondary/20'
-                            : 'hover:bg-surface-container'
-                        }`}
-                      >
-                        <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 shadow-sm relative">
-                          <RecipeImage
-                            title={meal.recipe.title}
-                            imageUrl={meal.recipe.imageUrl}
-                            size="small"
-                          />
-                        </div>
-                        <div className="flex-grow min-w-0">
-                          <p className="text-[10px] font-bold text-secondary uppercase tracking-widest">
-                            {DAY_LABELS_FULL[meal.day]}
-                          </p>
-                          <h4
-                            className={`font-bold truncate ${isSelected ? 'text-primary' : 'text-on-surface hover:text-secondary'} transition-colors`}
-                          >
-                            {meal.recipe.title}
-                          </h4>
-                          <span className="text-xs text-on-surface-variant">
-                            {meal.recipe.cookTimeMinutes}m •{' '}
-                            {meal.recipe.tags[0]?.tag.slug.replace('_', ' ') || 'Meal'}
-                          </span>
-                        </div>
-                        {isSelected ? (
-                          <Star className="w-5 h-5 text-secondary fill-secondary" />
-                        ) : (
-                          <ArrowRight className="w-5 h-5 text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity" />
-                        )}
-                        {meal.isLocked && <Lock className="w-4 h-4 text-secondary" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            </div>
 
             {/* Regenerate Button */}
             {!isConfirmed && (
