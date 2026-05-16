@@ -123,7 +123,9 @@ export default function RecipesPage() {
                     </span>
                   ))}
                 </div>
-              </div>              </div>            </Link>
+              </div>
+              </div>
+            </Link>
           ))}
         </div>
       )}

@@ -28,8 +28,6 @@ async function main() {
     { symbol: 'whole', name: 'whole', type: UnitType.count },
     { symbol: 'bag', name: 'bag', type: UnitType.count },
     { symbol: 'dash', name: 'dash', type: UnitType.other },
-    { symbol: 'lime', name: 'lime', type: UnitType.count },
-    { symbol: 'bell pepper', name: 'bell pepper', type: UnitType.count },
     { symbol: 'pinch', name: 'pinch', type: UnitType.other },
     { symbol: 'unit', name: 'unit', type: UnitType.other },
   ];
@@ -213,7 +211,6 @@ async function main() {
     ing('caster sugar', 'other'),
     ing('mash', 'other'),
   ]);
-  const byName = Object.fromEntries(ingredients.map((i) => [i.name, i]));
   console.log(`  ✓ ${ingredients.length} ingredients`);
 
   // ─── Helper to create a recipe ────────────────────────────────────────────
@@ -340,7 +337,7 @@ async function main() {
         { name: 'onion', amount: 300, unitSymbol: 'g' },
         { name: 'dried mixed herbs', amount: 2, unitSymbol: 'tsp' },
         { name: 'garlic', amount: 2, unitSymbol: 'cloves' },
-        { name: 'bell pepper', amount: 2, unitSymbol: 'bell pepper' },
+        { name: 'bell pepper', amount: 2, unitSymbol: 'piece' },
         { name: 'chilli flakes', amount: 2, unitSymbol: 'tsp' },
         { name: 'smoked paprika', amount: 2, unitSymbol: 'tsp' },
         { name: 'canned tomatoes', amount: 800, unitSymbol: 'g' },
@@ -398,14 +395,14 @@ async function main() {
       ings: [
         { name: 'chicken breast', amount: 400, unitSymbol: 'g' },
         { name: 'onion', amount: 150, unitSymbol: 'g' },
-        { name: 'bell pepper', amount: 1, unitSymbol: 'bell pepper' },
+        { name: 'bell pepper', amount: 1, unitSymbol: 'piece' },
         { name: 'chilli flakes', amount: 1, unitSymbol: 'tsp' },
         { name: 'smoked paprika', amount: 1, unitSymbol: 'tbsp' },
         { name: 'ground coriander', amount: 1, unitSymbol: 'tbsp' },
         { name: 'cumin', amount: 1, unitSymbol: 'tsp' },
         { name: 'garlic', amount: 2, unitSymbol: 'cloves' },
         { name: 'olive oil', amount: 4, unitSymbol: 'tbsp' },
-        { name: 'lime', amount: 1, unitSymbol: 'lime' },
+        { name: 'lime', amount: 1, unitSymbol: 'piece' },
         { name: 'tabasco', amount: 1, unitSymbol: 'dash' },
         { name: 'tortillas', amount: 8, unitSymbol: 'pieces' },
         { name: 'mixed salad', amount: 1, unitSymbol: 'bag' },
@@ -509,7 +506,7 @@ async function main() {
       ings: [
         { name: 'olive oil', amount: 1, unitSymbol: 'tbsp' },
         { name: 'onion', amount: 150, unitSymbol: 'g' },
-        { name: 'bell pepper', amount: 1, unitSymbol: 'bell pepper' },
+        { name: 'bell pepper', amount: 1, unitSymbol: 'piece' },
         { name: 'garlic', amount: 1, unitSymbol: 'clove' },
         { name: 'canned tomatoes', amount: 400, unitSymbol: 'g' },
         { name: 'gnocchi', amount: 500, unitSymbol: 'g' },
