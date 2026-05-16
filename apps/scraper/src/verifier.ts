@@ -178,7 +178,7 @@ ${JSON.stringify(raw, null, 2)}`;
 
     prog('fix', 'done');
     return {
-      recipe: result.data,
+      recipe: { ...raw, ...result.data },
       wasFixed: true,
       issues,
     };

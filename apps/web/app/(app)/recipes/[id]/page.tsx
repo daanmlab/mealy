@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { recipesApi, favoritesApi, type Recipe } from '@/lib/api';
 
 export default function RecipeDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -46,6 +47,14 @@ export default function RecipeDetailPage({ params }: { params: Promise<{ id: str
       </button>
 
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        {/* Hero image */}
+        {recipe.imageUrl ? (
+          <div className="relative w-full h-56">
+            <Image src={recipe.imageUrl} alt={recipe.title} fill className="object-cover" />
+          </div>
+        ) : (
+          <div className="w-full h-32 bg-gray-50 flex items-center justify-center text-4xl">🍽️</div>
+        )}
         <div className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div>

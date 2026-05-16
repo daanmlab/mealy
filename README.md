@@ -1,6 +1,15 @@
 # Mealy
 
-Mealy is a full-stack meal-planning application. It lets users discover recipes, build weekly meal plans, generate grocery lists, and save favourites — with AI-assisted recipe suggestions and an optional web scraper for importing recipes from URLs.
+Mealy is a full-stack meal-planning application built with Next.js and NestJS. Users can discover and import recipes, build weekly meal plans, generate smart grocery lists, and save favourites.
+
+**Key features**
+
+- Weekly meal planner with drag-and-drop scheduling
+- Grocery list generation with unit-aware ingredient consolidation
+- Recipe importer — scrape any recipe URL into a structured format, with LLM-assisted extraction and AI quality verification via OpenAI
+- Google OAuth and credentials-based authentication via NextAuth v5
+- Role-based admin panel
+- Fully typed API contract shared between frontend and backend via a `packages/types` workspace
 
 ## Architecture
 
@@ -185,17 +194,5 @@ The pipeline (`.github/workflows/ci.yml`) runs on every push and pull request to
 
 Vercel and Render both support auto-deploy on push to `main` — configure this in each platform's dashboard. CI acts as the quality gate before code reaches production.
 
----
 
-## First production checklist
-
-- [ ] Provision a **Neon** Postgres database; copy the connection string
-- [ ] Provision an **Upstash** Redis database; copy the connection string
-- [ ] Set all `sync: false` environment variables in the **Render** dashboard
-- [ ] Set `FRONTEND_URL` in Render to the Vercel deployment URL
-- [ ] Set `NEXT_PUBLIC_API_URL` in Vercel to the Render service URL
-- [ ] Run `prisma migrate deploy` against the production database
-- [ ] Update **Google OAuth** callback URLs to the production web URL (`/api/auth/callback/google`)
-- [ ] Verify the CI pipeline passes on `main`
-- [ ] Confirm the Render health check (`/api/health`) returns `{ "status": "ok" }`
 - [ ] Test the end-to-end auth flow (register → login → Google login)

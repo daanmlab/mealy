@@ -63,6 +63,7 @@ const mockPrisma = {
   },
   weeklyPlanMeal: {
     update: jest.fn(),
+    createMany: jest.fn(),
   },
   user: { findUniqueOrThrow: jest.fn() },
 };
@@ -217,6 +218,48 @@ describe('PlansService', () => {
 
       await service.regeneratePlan('p1', makeUser());
       expect(mockPrisma.weeklyPlanMeal.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('fills mealsPerWeek slots via createMany when the plan has no meals', async () => {
+      const user = makeUser({ mealsPerWeek: 3 });
+      mockPrisma.weeklyPlan.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'u1',
+        status: PlanStatus.draft,
+        meals: [],
+      });
+      const recipes = [
+        makeRecipe('r1', ['healthy']),
+        makeRecipe('r2', ['quick']),
+        makeRecipe('r3', ['pasta']),
+      ];
+      mockRecipes.findSuggestions.mockResolvedValue(recipes);
+      mockPrisma.weeklyPlanMeal.createMany.mockResolvedValue({ count: 3 });
+      const updatedPlan = {
+        id: 'p1',
+        meals: recipes.map((r, i) => makeMeal(`m${i}`, DayOfWeek.monday, r.id)),
+      };
+      mockPrisma.weeklyPlan.findUniqueOrThrow.mockResolvedValue(updatedPlan);
+
+      const result = await service.regeneratePlan('p1', user);
+
+      expect(mockPrisma.weeklyPlanMeal.createMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.weeklyPlanMeal.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.arrayContaining([
+            expect.objectContaining({ weeklyPlanId: 'p1' }),
+          ]) as unknown[],
+        }),
+      );
+      expect(
+        (
+          mockPrisma.weeklyPlanMeal.createMany.mock.calls[0] as [
+            { data: unknown[] },
+          ]
+        )[0].data,
+      ).toHaveLength(3);
+      expect(mockPrisma.weeklyPlanMeal.update).not.toHaveBeenCalled();
+      expect(result).toBe(updatedPlan);
     });
   });
 

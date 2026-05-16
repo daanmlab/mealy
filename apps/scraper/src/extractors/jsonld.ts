@@ -1,6 +1,11 @@
 import * as cheerio from 'cheerio';
 import { RawIngredient, RawRecipe } from '../types';
 
+interface SchemaOrgImageObject {
+  '@type'?: string;
+  url?: string;
+}
+
 interface SchemaOrgRecipe {
   '@type': string | string[];
   name?: string;
@@ -11,6 +16,7 @@ interface SchemaOrgRecipe {
   keywords?: string | string[];
   recipeInstructions?: unknown[];
   recipeIngredient?: string[];
+  image?: string | string[] | SchemaOrgImageObject | SchemaOrgImageObject[];
   '@graph'?: SchemaOrgObject[];
 }
 
@@ -284,6 +290,23 @@ export function extractFromJsonLd(html: string): RawRecipe | null {
 
     if (!title || steps.length === 0 || ingredients.length === 0) continue;
 
+    // Extract image URL from Schema.org image field
+    const imageRaw = schema.image;
+    let imageUrl: string | undefined;
+    if (typeof imageRaw === 'string') {
+      imageUrl = imageRaw;
+    } else if (Array.isArray(imageRaw)) {
+      const first = imageRaw[0];
+      imageUrl = typeof first === 'string' ? first : first?.url;
+    } else if (imageRaw && typeof imageRaw === 'object') {
+      imageUrl = imageRaw.url;
+    }
+
+    // Fall back to og:image meta tag
+    if (!imageUrl) {
+      imageUrl = $('meta[property="og:image"]').attr('content');
+    }
+
     return {
       title,
       description,
@@ -292,6 +315,7 @@ export function extractFromJsonLd(html: string): RawRecipe | null {
       keywords,
       steps,
       ingredients,
+      imageUrl: imageUrl || undefined,
     };
   }
 

@@ -11,6 +11,7 @@ export interface RawRecipe {
   cookTimeMinutes: number;
   servings: number;
   sourceUrl?: string;
+  imageUrl?: string;
   keywords: string[];
   steps: string[];
   ingredients: RawIngredient[];

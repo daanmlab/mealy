@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { recipesApi, favoritesApi, type Recipe, type RecipeTag } from '@/lib/api';
 
 const TAG_FILTERS: { value: RecipeTag | 'all'; label: string }[] = [
@@ -90,8 +91,17 @@ export default function RecipesPage() {
             <Link
               key={recipe.id}
               href={`/recipes/${recipe.id}`}
-              className="bg-white rounded-xl border border-gray-100 p-4 hover:border-olive-subtle hover:shadow-sm transition-all block"
+              className="bg-white rounded-xl border border-gray-100 hover:border-olive-subtle hover:shadow-sm transition-all block overflow-hidden"
             >
+              {/* Thumbnail */}
+              <div className="relative w-full aspect-video bg-gray-100">
+                {recipe.imageUrl ? (
+                  <Image src={recipe.imageUrl} alt={recipe.title} fill className="object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
+                )}
+              </div>
+              <div className="p-4">
               <div className="flex justify-between items-start gap-2">
                 <h3 className="font-medium text-gray-900 text-sm leading-snug flex-1">{recipe.title}</h3>
                 <button
@@ -113,6 +123,7 @@ export default function RecipesPage() {
                     </span>
                   ))}
                 </div>
+              </div>
               </div>
             </Link>
           ))}
