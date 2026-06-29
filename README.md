@@ -1,5 +1,8 @@
 # Mealy
 
+> [!NOTE]
+> **🗄️ Shelved (June 2026).** This project is no longer under active development and is parked for now. The code remains available for reference, but issues and PRs may not be reviewed and the hosted instance may be offline. Last active commit reflects the state at shelving.
+
 Mealy is a full-stack meal-planning application built with Next.js and NestJS. Users can discover and import recipes, build weekly meal plans, generate smart grocery lists, and save favourites.
 
 **Key features**
